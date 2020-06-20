@@ -14,6 +14,8 @@ struct win32_offscreen_buffer
 	i32 BytesPerPixel;
 	i32 Pitch;
 
+	f32* RenderTarget;
+
 	void Resize(i32 Width, i32 Height);
 };
 

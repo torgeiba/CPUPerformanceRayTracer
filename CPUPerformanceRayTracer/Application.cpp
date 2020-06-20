@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #include "Application.h"
 
 #include "dwmapi.h" // For frame/vsync, DwmFlush();
@@ -10,6 +12,10 @@
 //#include "WindowsX.h" // Some unused macros
 
 #include <emmintrin.h>
+
+#include "mathlib.h"
+
+#include "rendering.h"
 
 // Global instance
 ApplicationState App;
@@ -27,6 +33,11 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 	if (Memory)
 	{
 		VirtualFree(Memory, 0, MEM_RELEASE); // MEM_DECOMMIT
+	}
+
+	if (RenderTarget)
+	{
+		VirtualFree(RenderTarget, 0, MEM_RELEASE);
 	}
 
 	Width = NewWidth;
@@ -47,7 +58,9 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 	}
 
 	i32 BitmapMemorySize = Width * Height * BytesPerPixel;
+	i32 RenderTargetSize = Width * Height * 3 * sizeof(f32);
 	Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	RenderTarget = (f32*)VirtualAlloc(0, RenderTargetSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	Pitch = Width * BytesPerPixel;
 }
 
@@ -217,6 +230,43 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	ReleaseDC(Window, DeviceContext);
 }
 
+struct Ray
+{
+	f32x3 Origin;
+	f32x3 Direction;
+};
+
+struct Sphere
+{
+	f32x3 Center;
+	f32 Radius;
+};
+
+bool RaySphereIntersects(Ray ray, Sphere sphere, f32& t0)
+{
+	f32x3 L = sphere.Center - ray.Origin;
+	f32 tca = dot(L, ray.Direction);
+	f32 d2 = dot(L, L) - tca * tca;
+	f32 r2 = sphere.Radius* sphere.Radius;
+	if (d2 > r2) return false;
+	f32 thc = sqrtf(r2 - d2);
+	t0 = tca - thc;
+	f32 t1 = tca + thc;
+	if (t0 < 0) t0 = t1;
+	if (t0 < 0) return false;
+	return true;
+}
+
+f32x3 CastRay(Ray r, Sphere s)
+{
+	float dst = std::numeric_limits<float>::max();
+	if (RaySphereIntersects(r, s, dst))
+	{
+		return{ 0.4f, 0.4f, 0.3f };
+	}
+	return{ 0.2f, 0.7f, 0.3f };
+}
+
 void ApplicationState::Render()
 {
 	win32_offscreen_buffer* Buffer = &BackBuffer;
@@ -225,59 +275,57 @@ void ApplicationState::Render()
 	i32 Width = Buffer->Width;
 	i32 Height = Buffer->Height;
 
-	anim_offset++;
+	f32* RenderTarget = Buffer->RenderTarget;
+	::Render(RenderTarget, Width, Height, 3);
+	/*
+	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
-	i32 WindowWidth = CurrentWindowWidth;
-	i32 WindowHeight = CurrentWindowHeight;
+	f32 tanFov = tan(90 / 2.f); // 1
 
-	i32 MouseMoveX = ((Width)* MouseMoveCoords.XPos) / (WindowWidth);
-	i32 MouseMoveY = ((Height)* MouseMoveCoords.YPos) / (WindowHeight);
+	f32 y_const_term = - tanFov / (f32)Height + tanFov;
+	f32 y_const_factor = -tanFov * 2.f / (f32)Height;
 
-	i32 MousePressX = ((Width)* MouseLDownCoords.XPos) / (WindowWidth);
-	i32 MousePressY = ((Height)* MouseLDownCoords.YPos) / (WindowHeight);
-
-	i32 dZ2 = 100 + Global_Wheel_Value;
-
+	f32 x_const_term = (tanFov / (f32)Height) * (1.f - Width);
+	f32 x_const_factor = 2.f * tanFov / (f32)Height;
+	
+	
+	for (i32 Y = 0; Y < Height; ++Y)
+	{
+		f32 y = Y * y_const_factor + y_const_term;
+		
+		for (i32 X = 0; X < Width; ++X)
+		{
+			
+			f32 x = X * x_const_factor + x_const_term;
+			f32x3 udir = { x, y, -1.f };
+			f32x3 dir = normalize(udir);
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+			
+			RenderTarget[(Y * Width + X) * 3 + 0] = color.x;
+			RenderTarget[(Y * Width + X) * 3 + 1] = color.y;
+			RenderTarget[(Y * Width + X) * 3 + 2] = color.z;
+		}
+	}
+	*/
+	// Copy out
 	u8 *Row = (u8*)Buffer->Memory;
 	for (i32 Y = 0; Y < Height; ++Y)
 	{
 		u32 *Pixel = (u32*)Row;
-
-		// Y Terms
-		i32 Y_offset = Y + anim_offset;
-		i32 dYMove = Y - MouseMoveY;
-		i32 dYPress = Y - MousePressY;
-		i32 dY2Move = dYMove * dYMove;
-		i32 dY2Press = dYPress * dYPress;
-
-		for (i32 X = 0; X < Width; ++X)
+		for (i32 X = 0; X < Width / LANE_COUNT; ++X)
 		{
-			u8 B = (u8)(X + anim_offset);
-			u8 G = (u8)(Y_offset);
-			u8 R = 0;
-
-			i32 dXMove = X - MouseMoveX;
-			i32 dX2Move = dXMove * dXMove;
-
-			if ((dX2Move + dY2Move) < dZ2)
+			for (i32 Z = 0; Z < LANE_COUNT; Z++)
 			{
-				B = 0; R = 0; G = 0;
+				u8 B = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 0 * LANE_COUNT] * 255) & 0xFF);
+				u8 G = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 1 * LANE_COUNT] * 255) & 0xFF);
+				u8 R = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 2 * LANE_COUNT] * 255) & 0xFF);
+				*(Pixel+Z) = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
 			}
 
-			i32 dXPress = X - MousePressX;
-			i32 dX2Press = dXPress * dXPress;
-			if ((dX2Press + dY2Press) < 100)
-			{
-				B = 0; R = 255; G = 0;
-			}
-
-			//u32 double_word = ;
-			//_mm_stream_si32((int*)Pixel++, double_word);
-			*Pixel++ = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+			Pixel += LANE_COUNT;
 		}
 		Row += Buffer->Pitch;
 	}
-
 	HasRenderedThisFrame = true;
 }
 

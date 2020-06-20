@@ -1,0 +1,253 @@
+	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
+
+	f32 tanFov = tan(90 / 2.f); // 1
+00007FF6A3BE21BE E8 A1 23 00 00       call        tanf (07FF6A3BE4564h)  
+
+	f32 y_const_term = - tanFov / (f32)Height + tanFov;
+00007FF6A3BE21C3 C5 7A 10 35 75 33 00 00 vmovss      xmm14,dword ptr [__real@3f800000 (07FF6A3BE5540h)]  
+	f32 y_const_factor = -tanFov * 2.f / (f32)Height;
+
+
+	f32 x_const_term = (tanFov / (f32)Height) * (1.f - Width);
+	f32 x_const_factor = 2.f * tanFov / (f32)Height;
+	
+
+	u8 *Row = (u8*)Buffer->Memory;
+00007FF6A3BE21CB 4C 8B 1D BE 4F 00 00 mov         r11,qword ptr [App+40h (07FF6A3BE7190h)]  
+
+	for (i32 Y = 0; Y < Height; ++Y)
+00007FF6A3BE21D2 45 33 D2             xor         r10d,r10d  
+00007FF6A3BE21D5 C5 F0 57 C9          vxorps      xmm1,xmm1,xmm1  
+00007FF6A3BE21D9 C5 F2 2A CF          vcvtsi2ss   xmm1,xmm1,edi  
+00007FF6A3BE21DD C5 8A 5E E1          vdivss      xmm4,xmm14,xmm1  
+00007FF6A3BE21E1 C5 FA 59 0D 7B 33 00 00 vmulss      xmm1,xmm0,dword ptr [__real@c0000000 (07FF6A3BE5564h)]  
+00007FF6A3BE21E9 C5 DA 59 D8          vmulss      xmm3,xmm4,xmm0  
+00007FF6A3BE21ED C5 F2 59 FC          vmulss      xmm7,xmm1,xmm4  
+00007FF6A3BE21F1 C5 E8 57 D2          vxorps      xmm2,xmm2,xmm2  
+00007FF6A3BE21F5 C5 EA 2A D3          vcvtsi2ss   xmm2,xmm2,ebx  
+00007FF6A3BE21F9 C5 7A 5C EB          vsubss      xmm13,xmm0,xmm3  
+00007FF6A3BE21FD C5 8A 5C CA          vsubss      xmm1,xmm14,xmm2  
+00007FF6A3BE2201 C5 FA 58 C0          vaddss      xmm0,xmm0,xmm0  
+00007FF6A3BE2205 C5 FA 59 D4          vmulss      xmm2,xmm0,xmm4  
+00007FF6A3BE2209 C5 F2 59 CB          vmulss      xmm1,xmm1,xmm3  
+
+	for (i32 Y = 0; Y < Height; ++Y)
+00007FF6A3BE220D C5 FA 11 94 24 18 01 00 00 vmovss      dword ptr [rsp+118h],xmm2  
+00007FF6A3BE2216 C5 7A 11 AC 24 20 01 00 00 vmovss      dword ptr [rsp+120h],xmm13  
+00007FF6A3BE221F C5 FA 11 BC 24 28 01 00 00 vmovss      dword ptr [rsp+128h],xmm7  
+00007FF6A3BE2228 C5 FA 11 8C 24 10 01 00 00 vmovss      dword ptr [rsp+110h],xmm1  
+00007FF6A3BE2231 85 FF                test        edi,edi  
+00007FF6A3BE2233 0F 8E FA 01 00 00    jle         ApplicationState::Render+2C3h (07FF6A3BE2433h)  
+00007FF6A3BE2239 C5 F8 29 B4 24 E0 00 00 00 vmovaps     xmmword ptr [rsp+0E0h],xmm6  
+00007FF6A3BE2242 C5 FA 10 35 EA 32 00 00 vmovss      xmm6,dword ptr [__real@3e99999a (07FF6A3BE5534h)]  
+00007FF6A3BE224A C5 78 29 84 24 C0 00 00 00 vmovaps     xmmword ptr [rsp+0C0h],xmm8  
+00007FF6A3BE2253 C5 7A 10 05 DD 32 00 00 vmovss      xmm8,dword ptr [__real@3ecccccd (07FF6A3BE5538h)]  
+00007FF6A3BE225B C5 78 29 8C 24 B0 00 00 00 vmovaps     xmmword ptr [rsp+0B0h],xmm9  
+00007FF6A3BE2264 C5 7A 10 0D E4 32 00 00 vmovss      xmm9,dword ptr [__real@41800000 (07FF6A3BE5550h)]  
+00007FF6A3BE226C C5 78 29 94 24 A0 00 00 00 vmovaps     xmmword ptr [rsp+0A0h],xmm10  
+00007FF6A3BE2275 C5 7A 10 15 DB 32 00 00 vmovss      xmm10,dword ptr [__real@437f0000 (07FF6A3BE5558h)]  
+00007FF6A3BE227D C5 78 29 9C 24 90 00 00 00 vmovaps     xmmword ptr [rsp+90h],xmm11  
+00007FF6A3BE2286 C5 7A 10 1D A2 32 00 00 vmovss      xmm11,dword ptr [__real@3e4ccccd (07FF6A3BE5530h)]  
+00007FF6A3BE228E C5 78 29 A4 24 80 00 00 00 vmovaps     xmmword ptr [rsp+80h],xmm12  
+00007FF6A3BE2297 C5 7A 10 25 9D 32 00 00 vmovss      xmm12,dword ptr [__real@3f333333 (07FF6A3BE553Ch)]  
+00007FF6A3BE229F C5 78 29 7C 24 50    vmovaps     xmmword ptr [rsp+50h],xmm15  
+00007FF6A3BE22A5 C5 7A 10 3D B3 32 00 00 vmovss      xmm15,dword ptr [__real@bf800000 (07FF6A3BE5560h)]  
+00007FF6A3BE22AD C5 D0 57 ED          vxorps      xmm5,xmm5,xmm5  
+	{
+		u32 *Pixel = (u32*)Row;
+
+		// Y Terms
+		i32 Y_offset = Y + anim_offset;
+		i32 dYMove = Y - MouseMoveY;
+		i32 dYPress = Y - MousePressY;
+		i32 dY2Move = dYMove * dYMove;
+		i32 dY2Press = dYPress * dYPress;
+
+		f32 y = Y * y_const_factor + y_const_term;
+
+		for (i32 X = 0; X < Width; ++X)
+00007FF6A3BE22B1 C5 F8 57 C0          vxorps      xmm0,xmm0,xmm0  
+00007FF6A3BE22B5 45 33 C0             xor         r8d,r8d  
+00007FF6A3BE22B8 4D 8B CB             mov         r9,r11  
+00007FF6A3BE22BB C4 C1 7A 2A C2       vcvtsi2ss   xmm0,xmm0,r10d  
+00007FF6A3BE22C0 C4 C2 79 A9 FD       vfmadd213ss xmm7,xmm0,xmm13  
+00007FF6A3BE22C5 85 DB                test        ebx,ebx  
+00007FF6A3BE22C7 0F 8E 0B 01 00 00    jle         ApplicationState::Render+268h (07FF6A3BE23D8h)  
+00007FF6A3BE22CD C5 42 59 EF          vmulss      xmm13,xmm7,xmm7  
+00007FF6A3BE22D1 C5 F8 57 C0          vxorps      xmm0,xmm0,xmm0  
+		{
+			f32 x = X * x_const_factor + x_const_term;
+00007FF6A3BE22D5 C4 C1 7A 2A C0       vcvtsi2ss   xmm0,xmm0,r8d  
+00007FF6A3BE22DA C5 F8 28 DA          vmovaps     xmm3,xmm2  
+00007FF6A3BE22DE C4 E2 79 A9 D9       vfmadd213ss xmm3,xmm0,xmm1  
+			f32x3 udir = { x, y, -1.f };
+			f32x3 dir = normalize(udir);
+00007FF6A3BE22E3 C5 F8 28 CB          vmovaps     xmm1,xmm3  
+00007FF6A3BE22E7 C4 C2 61 A9 CD       vfmadd213ss xmm1,xmm3,xmm13  
+00007FF6A3BE22EC C4 C1 72 58 C6       vaddss      xmm0,xmm1,xmm14  
+00007FF6A3BE22F1 C5 FA 51 C8          vsqrtss     xmm1,xmm0,xmm0  
+00007FF6A3BE22F5 C5 8A 5E D1          vdivss      xmm2,xmm14,xmm1  
+00007FF6A3BE22F9 C5 EA 59 C7          vmulss      xmm0,xmm2,xmm7  
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+00007FF6A3BE22FD C5 FA 59 CD          vmulss      xmm1,xmm0,xmm5  
+			f32x3 udir = { x, y, -1.f };
+			f32x3 dir = normalize(udir);
+00007FF6A3BE2301 C5 EA 59 DB          vmulss      xmm3,xmm2,xmm3  
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+00007FF6A3BE2305 C5 E2 59 05 37 32 00 00 vmulss      xmm0,xmm3,dword ptr [__real@40400000 (07FF6A3BE5544h)]  
+			f32x3 udir = { x, y, -1.f };
+			f32x3 dir = normalize(udir);
+00007FF6A3BE230D C4 C1 6A 59 E7       vmulss      xmm4,xmm2,xmm15  
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+00007FF6A3BE2312 C5 F2 5C D0          vsubss      xmm2,xmm1,xmm0  
+00007FF6A3BE2316 C4 C1 5A 59 C9       vmulss      xmm1,xmm4,xmm9  
+00007FF6A3BE231B C5 EA 5C D9          vsubss      xmm3,xmm2,xmm1  
+00007FF6A3BE231F C5 F8 28 C3          vmovaps     xmm0,xmm3  
+00007FF6A3BE2323 C4 E2 61 AD 05 30 32 00 00 vfnmadd213ss xmm0,xmm3,dword ptr [__real@43848000 (07FF6A3BE555Ch)]  
+00007FF6A3BE232C C4 C1 78 2F C1       vcomiss     xmm0,xmm9  
+00007FF6A3BE2331 77 2D                ja          ApplicationState::Render+1F0h (07FF6A3BE2360h)  
+00007FF6A3BE2333 C5 B2 5C C0          vsubss      xmm0,xmm9,xmm0  
+00007FF6A3BE2337 C5 FA 51 D0          vsqrtss     xmm2,xmm0,xmm0  
+00007FF6A3BE233B C5 E2 5C CA          vsubss      xmm1,xmm3,xmm2  
+00007FF6A3BE233F C5 F8 2F CD          vcomiss     xmm1,xmm5  
+00007FF6A3BE2343 73 0A                jae         ApplicationState::Render+1DFh (07FF6A3BE234Fh)  
+00007FF6A3BE2345 C5 EA 58 C3          vaddss      xmm0,xmm2,xmm3  
+00007FF6A3BE2349 C5 F8 2F C5          vcomiss     xmm0,xmm5  
+00007FF6A3BE234D 72 11                jb          ApplicationState::Render+1F0h (07FF6A3BE2360h)  
+00007FF6A3BE234F C5 FA 11 74 24 38    vmovss      dword ptr [rsp+38h],xmm6  
+00007FF6A3BE2355 8B 44 24 38          mov         eax,dword ptr [rsp+38h]  
+00007FF6A3BE2359 C4 C1 38 14 C0       vunpcklps   xmm0,xmm8,xmm8  
+00007FF6A3BE235E EB 0F                jmp         ApplicationState::Render+1FFh (07FF6A3BE236Fh)  
+00007FF6A3BE2360 C5 FA 11 74 24 44    vmovss      dword ptr [rsp+44h],xmm6  
+00007FF6A3BE2366 8B 44 24 44          mov         eax,dword ptr [rsp+44h]  
+00007FF6A3BE236A C4 C1 20 14 C4       vunpcklps   xmm0,xmm11,xmm12  
+	{
+		u32 *Pixel = (u32*)Row;
+
+		// Y Terms
+		i32 Y_offset = Y + anim_offset;
+		i32 dYMove = Y - MouseMoveY;
+		i32 dYPress = Y - MousePressY;
+		i32 dY2Move = dYMove * dYMove;
+		i32 dY2Press = dYPress * dYPress;
+
+		f32 y = Y * y_const_factor + y_const_term;
+
+		for (i32 X = 0; X < Width; ++X)
+00007FF6A3BE236F C5 FA 10 94 24 18 01 00 00 vmovss      xmm2,dword ptr [x_const_factor]  
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+00007FF6A3BE2378 89 44 24 28          mov         dword ptr [rsp+28h],eax  
+	{
+		u32 *Pixel = (u32*)Row;
+
+		// Y Terms
+		i32 Y_offset = Y + anim_offset;
+		i32 dYMove = Y - MouseMoveY;
+		i32 dYPress = Y - MousePressY;
+		i32 dY2Move = dYMove * dYMove;
+		i32 dY2Press = dYPress * dYPress;
+
+		f32 y = Y * y_const_factor + y_const_term;
+
+		for (i32 X = 0; X < Width; ++X)
+00007FF6A3BE237C 41 FF C0             inc         r8d  
+			u8 R = (u8)((i32)(color.z * 255) & 0xFF);
+00007FF6A3BE237F C5 AA 59 4C 24 28    vmulss      xmm1,xmm10,dword ptr [rsp+28h]  
+00007FF6A3BE2385 C5 FA 2C C1          vcvttss2si  eax,xmm1  
+
+
+			/*
+			u8 B = (u8)(X + anim_offset);
+			u8 G = (u8)(Y_offset);
+			u8 R = 0;
+
+			i32 dXMove = X - MouseMoveX;
+			i32 dX2Move = dXMove * dXMove;
+
+			if ((dX2Move + dY2Move) < dZ2)
+			{
+				B = 0; R = 0; G = 0;
+			}
+
+			i32 dXPress = X - MousePressX;
+			i32 dX2Press = dXPress * dXPress;
+			if ((dX2Press + dY2Press) < 100)
+			{
+				B = 0; R = 255; G = 0;
+			}
+			*/
+			//u32 double_word = ;
+			//_mm_stream_si32((int*)Pixel++, double_word);
+			*Pixel++ = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+00007FF6A3BE2389 0F B6 D0             movzx       edx,al  
+00007FF6A3BE238C C1 E2 08             shl         edx,8  
+			f32x3 color = CastRay({{ 0.f, 0.f, 0.f }, dir}, sphere);
+00007FF6A3BE238F C5 FB 11 44 24 20    vmovsd      qword ptr [rsp+20h],xmm0  
+
+			u8 B = (u8)((i32)(color.x * 255) & 0xFF);
+			u8 G = (u8)((i32)(color.y * 255) & 0xFF);
+00007FF6A3BE2395 C5 AA 59 4C 24 24    vmulss      xmm1,xmm10,dword ptr [rsp+24h]  
+00007FF6A3BE239B C5 FA 2C C1          vcvttss2si  eax,xmm1  
+00007FF6A3BE239F C5 AA 59 4C 24 20    vmulss      xmm1,xmm10,dword ptr [rsp+20h]  
+
+
+			/*
+			u8 B = (u8)(X + anim_offset);
+			u8 G = (u8)(Y_offset);
+			u8 R = 0;
+
+			i32 dXMove = X - MouseMoveX;
+			i32 dX2Move = dXMove * dXMove;
+
+			if ((dX2Move + dY2Move) < dZ2)
+			{
+				B = 0; R = 0; G = 0;
+			}
+
+			i32 dXPress = X - MousePressX;
+			i32 dX2Press = dXPress * dXPress;
+			if ((dX2Press + dY2Press) < 100)
+			{
+				B = 0; R = 255; G = 0;
+			}
+			*/
+			//u32 double_word = ;
+			//_mm_stream_si32((int*)Pixel++, double_word);
+			*Pixel++ = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+00007FF6A3BE23A5 0F B6 C8             movzx       ecx,al  
+
+
+			/*
+			u8 B = (u8)(X + anim_offset);
+			u8 G = (u8)(Y_offset);
+			u8 R = 0;
+
+			i32 dXMove = X - MouseMoveX;
+			i32 dX2Move = dXMove * dXMove;
+
+			if ((dX2Move + dY2Move) < dZ2)
+			{
+				B = 0; R = 0; G = 0;
+			}
+
+			i32 dXPress = X - MousePressX;
+			i32 dX2Press = dXPress * dXPress;
+			if ((dX2Press + dY2Press) < 100)
+			{
+				B = 0; R = 255; G = 0;
+			}
+			*/
+			//u32 double_word = ;
+			//_mm_stream_si32((int*)Pixel++, double_word);
+			*Pixel++ = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+00007FF6A3BE23A8 0B D1                or          edx,ecx  
+00007FF6A3BE23AA C5 FA 2C C1          vcvttss2si  eax,xmm1  
+00007FF6A3BE23AE C5 FA 10 8C 24 10 01 00 00 vmovss      xmm1,dword ptr [x_const_term]  
+00007FF6A3BE23B7 C1 E2 08             shl         edx,8  
+00007FF6A3BE23BA 0F B6 C8             movzx       ecx,al  
+00007FF6A3BE23BD 0B D1                or          edx,ecx  
+00007FF6A3BE23BF 41 89 11             mov         dword ptr [r9],edx  
+00007FF6A3BE23C2 49 83 C1 04          add         r9,4  
+00007FF6A3BE23C6 44 3B C3             cmp         r8d,ebx  
+00007FF6A3BE23C9 0F 8C 02 FF FF FF    jl          ApplicationState::Render+161h (07FF6A3BE22D1h)  
+00007FF6A3BE23CF C5 7A 10 AC 24 20 01 00 00 vmovss      xmm13,dword ptr [y_const_term]  
