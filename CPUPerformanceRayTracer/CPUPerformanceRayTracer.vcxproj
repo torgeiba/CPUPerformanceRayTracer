@@ -100,16 +100,11 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <FloatingPointExceptions>false</FloatingPointExceptions>
       <StringPooling>true</StringPooling>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
       <CallingConvention>VectorCall</CallingConvention>
-      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <OpenMPSupport>false</OpenMPSupport>
     </ClCompile>
     <Link>
@@ -119,6 +114,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="demofox_path_tracing.cpp" />
+    <ClCompile Include="demofox_path_tracing_scalar.cpp" />
     <ClCompile Include="mathlib.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -126,6 +123,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="demofox_path_tracing.h" />
+    <ClInclude Include="demofox_path_tracing_scalar.h" />
     <ClInclude Include="mathlib.h" />
     <ClInclude Include="rendering.h" />
     <ClInclude Include="utils.h" />

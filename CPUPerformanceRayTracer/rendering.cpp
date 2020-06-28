@@ -66,20 +66,20 @@ __m256 RaySphereIntersects(Ray8 ray, Sphere8 sphere, __m256& t0)
 	__m256 thc = sroot(abs_ps(r2 - d2));
 	t0 = blend_ps(t0, tca - thc, ReturnMask);
 	__m256 t1 = tca + thc;
-	__m256 negmask = t0 >= _mm256_set1_ps(0.f);
+	__m256 negmask = t0 >= set1_ps(0.f);
 	t0 = blend_ps(t1, t0, negmask);
-	ReturnMask = bitwise_and(ReturnMask, t0 >= _mm256_set1_ps(0.f));
+	ReturnMask = bitwise_and(ReturnMask, t0 >= set1_ps(0.f));
 	return ReturnMask;
 }
 
 m256x3 CastRay(Ray8 r, Sphere8 s)
 {
 	m256x3 Result;
-	__m256 dst = _mm256_set1_ps(std::numeric_limits<float>::max());
+	__m256 dst = set1_ps(std::numeric_limits<float>::max());
 	__m256 IntersectionMask = RaySphereIntersects(r, s, dst);
-	Result.x = blend_ps(_mm256_set1_ps(0.8f), _mm256_set1_ps(0.3f), IntersectionMask);
-	Result.y = blend_ps(_mm256_set1_ps(0.7f), _mm256_set1_ps(0.4f), IntersectionMask);
-	Result.z = blend_ps(_mm256_set1_ps(0.2f), _mm256_set1_ps(0.4f), IntersectionMask);
+	Result.x = blend_ps(set1_ps(0.8f), set1_ps(0.3f), IntersectionMask);
+	Result.y = blend_ps(set1_ps(0.7f), set1_ps(0.4f), IntersectionMask);
+	Result.z = blend_ps(set1_ps(0.2f), set1_ps(0.4f), IntersectionMask);
 	return Result;
 }
 
@@ -89,37 +89,32 @@ void Render(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumChannels)
 	i32 YHeight = BufferHeight;
 	i32 XWidth = (BufferWidth / LANE_COUNT);
 
-
-	Sphere8 sphere = { {
-			_mm256_set1_ps(-3.f),
-			_mm256_set1_ps(0.f),
-			_mm256_set1_ps(-16.f),
-		},	
-		_mm256_set1_ps(4.f)
-	};
+	Sphere8 sphere = { set1x3_ps(-3.f, 0.f, -16.f),  set1_ps(4.f) };
 	f32 tanFov = tan(90 / 2.f); // 1
-	__m256 y_const_term   = _mm256_set1_ps(-tanFov / (f32)BufferHeight + tanFov);
-	__m256 y_const_factor = _mm256_set1_ps(-tanFov * 2.f / (f32)BufferHeight);
-	__m256 x_const_term   = _mm256_set1_ps((tanFov / (f32)BufferHeight) * (1.f - BufferWidth));
-	__m256 x_const_factor = _mm256_set1_ps(2.f * tanFov / (f32)BufferHeight);
+	__m256 y_const_term   = set1_ps(-tanFov / (f32)BufferHeight + tanFov);
+	__m256 y_const_factor = set1_ps(-tanFov * 2.f / (f32)BufferHeight);
+	__m256 x_const_term   = set1_ps((tanFov / (f32)BufferHeight) * (1.f - BufferWidth));
+	__m256 x_const_factor = set1_ps(2.f * tanFov / (f32)BufferHeight);
 
-	float* BufferPos = BufferOut;
+	f32* BufferPos = BufferOut;
+
+	m256x3 origin = set1x3_ps(0.f, 0.f, 0.f);
+	/*{
+		set1_ps(0.f),
+		set1_ps(0.f),
+		set1_ps(0.f)
+	};*/
+	
+	__m256 XLaneOffsets = set_ps(7.f, 6.f, 5.f, 4.f, 3.f, 2.f, 1.f, 0.f);
 
 	for (i32 Y = 0; Y < YHeight; Y++)
 	{
-		__m256 y = _mm256_set1_ps((f32)Y) * y_const_factor + y_const_term;
+		__m256 y = set1_ps((f32)Y) * y_const_factor + y_const_term;
 		for (i32 X = 0; X < XWidth; X++)
 		{
-			__m256 x = add(_mm256_set1_ps((f32)X * LANE_COUNT),
-				_mm256_set_ps(7.f, 6.f, 5.f, 4.f, 3.f, 2.f, 1.f, 0.f)
-				) * x_const_factor + x_const_term;
-			m256x3 udir = { x, y, _mm256_set1_ps(-1.f) };
+			__m256 x = (set1_ps((f32)X * LANE_COUNT) + XLaneOffsets) * x_const_factor + x_const_term;
+			m256x3 udir = { x, y, set1_ps(-1.f) };
 			m256x3 dir = normalize(udir);
-			m256x3 origin = {
-				_mm256_set1_ps(0.f),
-				_mm256_set1_ps(0.f),
-				_mm256_set1_ps(0.f)
-			};
 			m256x3 color = CastRay({ origin , dir }, sphere);
 
 			non_temporal_store(BufferPos, color.x);

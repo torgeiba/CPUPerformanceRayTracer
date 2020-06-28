@@ -17,6 +17,9 @@
 
 #include "rendering.h"
 
+//#include "demofox_path_tracing.h"
+#include "demofox_path_tracing_scalar.h"
+
 // Global instance
 ApplicationState App;
 
@@ -61,6 +64,7 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 	i32 RenderTargetSize = Width * Height * 3 * sizeof(f32);
 	Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	RenderTarget = (f32*)VirtualAlloc(0, RenderTargetSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	memset(RenderTarget, 0, RenderTargetSize);
 	Pitch = Width * BytesPerPixel;
 }
 
@@ -121,8 +125,8 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 
 	i32 WindowWidth = CW_USEDEFAULT, WindowHeight = CW_USEDEFAULT;
 	i32 WindowTopLeftX = CW_USEDEFAULT, WindowTopLeftY = CW_USEDEFAULT;
-	i32 ClientWidth = 1920, ClientHeight = 1080;
-	i32 BackbufferResolutionX = 1280, BackbufferResolutionY = 720;
+	i32 ClientWidth = 640, ClientHeight = 360;
+	i32 BackbufferResolutionX = 360, BackbufferResolutionY = 360;
 
 	if (FullScreen)
 	{
@@ -276,7 +280,10 @@ void ApplicationState::Render()
 	i32 Height = Buffer->Height;
 
 	f32* RenderTarget = Buffer->RenderTarget;
-	::Render(RenderTarget, Width, Height, 3);
+	//::Render(RenderTarget, Width, Height, 3);
+
+	//DemofoxRender(RenderTarget, Width, Height, 3);
+	DemofoxRenderScalar(RenderTarget, Width, Height, 3);
 	/*
 	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
@@ -307,8 +314,8 @@ void ApplicationState::Render()
 		}
 	}
 	*/
-	// Copy out
-	u8 *Row = (u8*)Buffer->Memory;
+	// Wide Copy out
+	/*u8 *Row = (u8*)Buffer->Memory;
 	for (i32 Y = 0; Y < Height; ++Y)
 	{
 		u32 *Pixel = (u32*)Row;
@@ -325,7 +332,27 @@ void ApplicationState::Render()
 			Pixel += LANE_COUNT;
 		}
 		Row += Buffer->Pitch;
+	}*/
+
+	// Scalar copy out
+
+	auto clamp = [](f32 x, f32 a, f32 b) { return x < a ? a : (x > b ? b : x); };
+	u8* Row = (u8*)Buffer->Memory;
+	for (i32 Y = 0; Y < Height; ++Y)
+	{
+		u32* Pixel = (u32*)Row;
+		for (i32 X = 0; X < Width; ++X)
+		{
+			i32 PixelIndex = (Y * Width + X) * 3;
+			u8 R = (u8)((i32)(clamp(RenderTarget[PixelIndex + 0], 0.f, 1.f) * 255) & 0xFF);
+			u8 G = (u8)((i32)(clamp(RenderTarget[PixelIndex + 1], 0.f, 1.f) * 255) & 0xFF);
+			u8 B = (u8)((i32)(clamp(RenderTarget[PixelIndex + 2], 0.f, 1.f) * 255) & 0xFF);
+			*Pixel = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+			Pixel += 1;
+		}
+		Row += Buffer->Pitch;
 	}
+
 	HasRenderedThisFrame = true;
 }
 
