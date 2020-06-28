@@ -24,7 +24,7 @@ const int c_numRendersPerFrame = 1;
 const f32 c_pi = 3.14159265359f;
 const f32 c_twopi = 2.0f * c_pi;
 
-u32 wang_hash(u32& seed)
+static u32 wang_hash(u32& seed)
 {
     seed = u32(seed ^ u32(61)) ^ u32(seed >> u32(16));
     seed *= u32(9);
@@ -34,12 +34,12 @@ u32 wang_hash(u32& seed)
     return seed;
 }
 
-f32 Randomf3201(u32& state)
+static f32 Randomf3201(u32& state)
 {
     return f32(wang_hash(state)) / 4294967296.0f;
 }
 
-f32x3 RandomUnitVector(u32& state)
+static f32x3 RandomUnitVector(u32& state)
 {
     f32 z = Randomf3201(state) * 2.0f - 1.0f;
     f32 a = Randomf3201(state) * c_twopi;
@@ -57,12 +57,12 @@ struct SRayHitInfo
     f32x3 emissive;
 };
 
-f32 ScalarTriple(f32x3 u, f32x3 v, f32x3 w)
+static f32 ScalarTriple(f32x3 u, f32x3 v, f32x3 w)
 {
     return dot(cross(u, v), w);
 }
 
-bool TestQuadTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x3 a, f32x3 b, f32x3 c, f32x3 d)
+static bool TestQuadTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x3 a, f32x3 b, f32x3 c, f32x3 d)
 {
     // calculate normal and flip vertices order if needed
     f32x3 normal = normalize(cross(c - a, c - b));
@@ -142,7 +142,7 @@ bool TestQuadTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x3 a, f32x3
     return false;
 }
 
-bool TestSphereTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x4 sphere)
+static bool TestSphereTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x4 sphere)
 {
     //get the vector from the center of this sphere to where the ray begins.
     f32x3 spherexyz = f32x3{ sphere.x, sphere.y, sphere.z };
@@ -183,7 +183,7 @@ bool TestSphereTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& info, f32x4 sphere
     return false;
 }
 
-void TestSceneTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& hitInfo)
+static void TestSceneTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& hitInfo)
 {
     // to move the scene around, since we can't move the camera yet
     f32x3 sceneTranslation = f32x3{ 0.0f, 0.0f, 10.0f };
@@ -286,7 +286,7 @@ void TestSceneTrace(f32x3 rayPos, f32x3 rayDir, SRayHitInfo& hitInfo)
     }
 }
 
-f32x3 GetColorForRay(f32x3 startRayPos, f32x3 startRayDir, u32& rngState)
+static f32x3 GetColorForRay(f32x3 startRayPos, f32x3 startRayDir, u32& rngState)
 {
     // initialize
     f32x3 ret = f32x3{ 0.0f, 0.0f, 0.0f };
@@ -326,7 +326,7 @@ f32x3 GetColorForRay(f32x3 startRayPos, f32x3 startRayDir, u32& rngState)
     return ret;
 }
 
-f32x3 mainImage(f32x2 fragCoord, f32x2 iResolution, f32 iFrame)
+static f32x3 mainImage(f32x2 fragCoord, f32x2 iResolution, f32 iFrame)
 {
     // initialize a random number state based on frag coord and frame
     u32 rngState = u32(u32(fragCoord.x) * u32(1973) + u32(fragCoord.y) * u32(9277) + u32(iFrame) * u32(26699)) | u32(1);
@@ -817,8 +817,4 @@ void DemofoxRenderScalar(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 
             BufferPos += 3;
         }
     }
-
-
-
-
 }

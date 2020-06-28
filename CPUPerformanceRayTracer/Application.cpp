@@ -18,7 +18,7 @@
 #include "rendering.h"
 
 //#include "demofox_path_tracing.h"
-#include "demofox_path_tracing_scalar.h"
+#include "demofox_path_tracing_scalar_branchless.h"
 
 // Global instance
 ApplicationState App;
@@ -283,7 +283,7 @@ void ApplicationState::Render()
 	//::Render(RenderTarget, Width, Height, 3);
 
 	//DemofoxRender(RenderTarget, Width, Height, 3);
-	DemofoxRenderScalar(RenderTarget, Width, Height, 3);
+	DemofoxRenderScalarBranchless(RenderTarget, Width, Height, 3);
 	/*
 	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
