@@ -17,7 +17,7 @@
 
 #include "rendering.h"
 
-//#include "demofox_path_tracing.h"
+#include "demofox_path_tracing_simd.h"
 #include "demofox_path_tracing_scalar_branchless.h"
 
 // Global instance
@@ -282,8 +282,8 @@ void ApplicationState::Render()
 	f32* RenderTarget = Buffer->RenderTarget;
 	//::Render(RenderTarget, Width, Height, 3);
 
-	//DemofoxRender(RenderTarget, Width, Height, 3);
-	DemofoxRenderScalarBranchless(RenderTarget, Width, Height, 3);
+	//DemofoxRenderScalarBranchless(RenderTarget, Width, Height, 3);
+	DemofoxRenderSimd(RenderTarget, Width, Height, 3);
 	/*
 	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
@@ -315,7 +315,9 @@ void ApplicationState::Render()
 	}
 	*/
 	// Wide Copy out
-	/*u8 *Row = (u8*)Buffer->Memory;
+#if 1
+	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
+	u8 *Row = (u8*)Buffer->Memory;
 	for (i32 Y = 0; Y < Height; ++Y)
 	{
 		u32 *Pixel = (u32*)Row;
@@ -323,17 +325,17 @@ void ApplicationState::Render()
 		{
 			for (i32 Z = 0; Z < LANE_COUNT; Z++)
 			{
-				u8 B = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 0 * LANE_COUNT] * 255) & 0xFF);
-				u8 G = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 1 * LANE_COUNT] * 255) & 0xFF);
-				u8 R = (u8)((i32)(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 2 * LANE_COUNT] * 255) & 0xFF);
-				*(Pixel+Z) = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+				u8 R = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 0 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				u8 G = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 1 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				u8 B = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 2 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				Pixel[Z] = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
 			}
 
 			Pixel += LANE_COUNT;
 		}
 		Row += Buffer->Pitch;
-	}*/
-
+	}
+#else
 	// Scalar copy out
 
 	auto clamp = [](f32 x, f32 a, f32 b) { return x < a ? a : (x > b ? b : x); };
@@ -352,7 +354,7 @@ void ApplicationState::Render()
 		}
 		Row += Buffer->Pitch;
 	}
-
+#endif
 	HasRenderedThisFrame = true;
 }
 

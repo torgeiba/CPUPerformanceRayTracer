@@ -1,0 +1,17 @@
+
+
+todos:
+---------------------------------
+
+texture mapping
+
+simd rendering
+
+threaded rendering
+
+multipass rendering
+
+vertex / pixelshader systems
+
+(triangle) rasterization pipeline
+

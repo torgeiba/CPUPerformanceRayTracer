@@ -42,6 +42,9 @@
     <ClCompile Include="demofox_path_tracing_scalar_branchless.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="demofox_path_tracing_simd.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils.h">
@@ -65,9 +68,15 @@
     <ClInclude Include="demofox_path_tracing_scalar_branchless.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="DisasmOptimizedVectorized.txt">
+      <Filter>Misc</Filter>
+    </Text>
+    <Text Include="notes.txt">
       <Filter>Misc</Filter>
     </Text>
   </ItemGroup>

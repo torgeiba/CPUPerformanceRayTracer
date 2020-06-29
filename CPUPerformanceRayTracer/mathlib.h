@@ -137,6 +137,8 @@ inline __m256 min_ps(__m256 a, __m256 b) { return _mm256_min_ps(a, b); }
 inline __m256 negate_ps(__m256 a) { return _mm256_xor_ps(a, _mm256_set1_ps(-0.f)); }
 inline __m256 abs_ps(__m256 a) { return _mm256_andnot_ps(_mm256_set1_ps(-0.f), a); }
 
+inline __m256 signflip_ps(__m256 a) { return _mm256_xor_ps(_mm256_set1_ps(-0.f), a); }
+
 inline __m256 round_ceil(__m256 a)	  { return _mm256_round_ps(a, _MM_FROUND_CEIL); }
 inline __m256 round_floor(__m256 a)   { return _mm256_round_ps(a, _MM_FROUND_FLOOR); }
 inline __m256 round_nearest(__m256 a) { return _mm256_round_ps(a, _MM_FROUND_NINT); }
@@ -161,13 +163,25 @@ inline __m256 clamp(__m256 x, __m256 minval, __m256 maxval) { return min_ps(max_
 */
 
 
-inline __m256 rcp(__m256 a)   { return _mm256_rcp_ps(a)  ; }// reciprocal
+inline __m256 rcp(__m256 a)   { return _mm256_rcp_ps(a); } // reciprocal
+inline __m256 sroot(__m256 a)  { return _mm256_sqrt_ps(a); } // square root
 inline __m256 rsroot(__m256 a) { return _mm256_rsqrt_ps(a); } // reciprocal square root
-inline __m256 sroot(__m256 a)  { return _mm256_sqrt_ps(a) ; }// square root
 
+inline __m256 sin_ps(__m256 a) { return _mm256_sin_ps(a); }
+inline __m256 cos_ps(__m256 a) { return _mm256_cos_ps(a); }
+inline __m256 tan_ps(__m256 a) { return _mm256_tan_ps(a); }
+inline __m256 asin_ps(__m256 a) { return _mm256_asin_ps(a); }
+inline __m256 acos_ps(__m256 a) { return _mm256_acos_ps(a); }
+inline __m256 atan_ps(__m256 a) { return _mm256_atan_ps(a); }
+inline __m256 atan2_ps(__m256 a, __m256 b) { return _mm256_atan2_ps(a, b); }
+
+inline __m256 exp_ps(__m256 a) { return _mm256_exp_ps(a); }
+inline __m256 log_ps(__m256 a) { return _mm256_log_ps(a); }
+inline __m256 pow_ps(__m256 a, __m256 b) { return _mm256_pow_ps(a, b); }
 
 inline f32 rcp(f32 a) { return 1.f / a;    } // reciprocal
 inline f32 sroot(f32 a) { return sqrtf(a); } // square root
+inline f32 rsroot(f32 a) { return 1.f/sqrtf(a); } // reciprocal square root
 
 /*
 	Loads and stores
@@ -188,6 +202,7 @@ inline void store_ps(f32* mem_addr, __m256 a) { _mm256_store_ps(mem_addr, a); }
 inline void maskstore_ps(f32* mem_addr, __m256i mask, __m256 a) { _mm256_maskstore_ps(mem_addr, mask, a); }
 
 inline __m256 blend_ps(__m256 a, __m256 b, __m256 mask) { return  _mm256_blendv_ps(a, b, mask); }
+inline __m256 if_then_else(__m256 cond, __m256 thenDo, __m256 elseDo) { return  _mm256_blendv_ps(elseDo, thenDo, cond); } // switcheroo of blend_ps to match C ternary operator
 
 inline m256x2 blend2_ps(m256x2 a, m256x2 b, __m256 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask), _mm256_blendv_ps(a.y, b.y, mask) }; }
 inline m256x3 blend3_ps(m256x3 a, m256x3 b, __m256 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask), _mm256_blendv_ps(a.y, b.y, mask), _mm256_blendv_ps(a.z, b.z, mask) }; }
@@ -234,6 +249,15 @@ template<typename T> inline T operator*(T v, f32 c) { return mul(c, v); }
 template<typename T> inline T operator*(__m256 c, T v) { return mul(c, v); }
 template<typename T> inline T operator*(T v, __m256 c) { return mul(c, v); }*/
 
+inline __m256 operator|(__m256 u, __m256 v) { return bitwise_or(u, v); }
+inline __m256 operator&(__m256 u, __m256 v) { return bitwise_and(u, v); }
+inline __m256 operator||(__m256 u, __m256 v) { return bitwise_or(u, v); }
+inline __m256 operator&&(__m256 u, __m256 v) { return bitwise_and(u, v); }
+inline __m256 operator^(__m256 u, __m256 v) { return bitwise_xor(u, v); }
+inline __m256 operator~(__m256 u) { return bitwise_not(u); }
+inline __m256 operator!(__m256 u) { return bitwise_not(u); }
+
+inline __m256 operator-(__m256 u) { return signflip_ps(u); }
 
 
 inline f32 len(f32x2 u) { return sroot(dot(u, u)); }
@@ -249,7 +273,31 @@ inline __m256 len(m256x4 u) { return sroot(dot(u, u)); }
 
 
 template<typename T, typename S> inline S lenSqrd(T u) { return dot(u, u); }
-template<typename T> inline T normalize(T v) { return mul(v, rcp(len(v))); }
+//template<typename T> inline T normalize(T v) { return mul(v, rcp(len(v))); }
+//template<typename T> inline T normalize(T v) { return div(v, sroot(dot(v, v))); }
+template<typename T> inline T normalize(T v) { return mul(v, rsroot(dot(v, v))); }
+
+template<> inline m256x2 normalize(m256x2 v) { return mul(v, set1_ps(1.) / sroot(dot(v, v))); }
+template<> inline m256x3 normalize(m256x3 v) { return mul(v, set1_ps(1.) / sroot(dot(v, v))); }
+template<> inline m256x4 normalize(m256x4 v) { return mul(v, set1_ps(1.) / sroot(dot(v, v))); }
+
+//template<> inline m256x3 normalize(m256x3 v) {
+//
+//	m256x3 result;
+//	for (i32 lane = 0; lane < 8; lane++)
+//	{
+//		f32 x = v.x.m256_f32[lane];
+//		f32 y = v.y.m256_f32[lane];
+//		f32 z = v.z.m256_f32[lane];
+//		f32 l2norm = sqrt(x * x + y * y + z * z);
+//		result.x.m256_f32[lane] = x / l2norm;
+//		result.y.m256_f32[lane] = y / l2norm;
+//		result.z.m256_f32[lane] = z / l2norm;
+//	}
+//	return result;
+//}
+
+
 template<typename T, typename S> inline T lerp(T u, T v, S x) { return add(u, mul(x, sub(v, u))); }
 template<typename T> inline T proj(T u, T v) { return mul((dot(u, v) / dot(v, v)), v); }
 template<typename T> inline T rjec(T u, T v) { return sub(u, proj(u, v)); }
@@ -272,13 +320,4 @@ inline T rfrct(T v /*unit len*/, T n /*unit len*/, float ior)
 
 // set / broadcast for vector component types, m256x3 etc
 // conditional move based on mask for vector component types
-
-// exp
-// log
-// sin, asin
-// cos, acos
-// tan, atan (2)
-// pow()
-// smoothstep
-// clamp
 
