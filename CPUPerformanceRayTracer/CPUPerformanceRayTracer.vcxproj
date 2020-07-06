@@ -106,6 +106,7 @@
       <StringPooling>true</StringPooling>
       <CallingConvention>VectorCall</CallingConvention>
       <OpenMPSupport>false</OpenMPSupport>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -118,6 +119,8 @@
     <ClCompile Include="demofox_path_tracing_scalar.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar_branchless.cpp" />
     <ClCompile Include="demofox_path_tracing_simd.cpp" />
+    <ClCompile Include="demofox_path_tracing_simd_tiled.cpp" />
+    <ClCompile Include="demofox_path_tracing_simt.cpp" />
     <ClCompile Include="mathlib.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -129,6 +132,8 @@
     <ClInclude Include="demofox_path_tracing_scalar.h" />
     <ClInclude Include="demofox_path_tracing_scalar_branchless.h" />
     <ClInclude Include="demofox_path_tracing_simd.h" />
+    <ClInclude Include="demofox_path_tracing_simd_tiled.h" />
+    <ClInclude Include="demofox_path_tracing_simt.h" />
     <ClInclude Include="mathlib.h" />
     <ClInclude Include="rendering.h" />
     <ClInclude Include="utils.h" />

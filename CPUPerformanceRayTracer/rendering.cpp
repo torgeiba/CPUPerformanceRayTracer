@@ -99,11 +99,6 @@ void Render(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumChannels)
 	f32* BufferPos = BufferOut;
 
 	m256x3 origin = set1x3_ps(0.f, 0.f, 0.f);
-	/*{
-		set1_ps(0.f),
-		set1_ps(0.f),
-		set1_ps(0.f)
-	};*/
 	
 	__m256 XLaneOffsets = set_ps(7.f, 6.f, 5.f, 4.f, 3.f, 2.f, 1.f, 0.f);
 

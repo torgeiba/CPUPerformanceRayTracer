@@ -17,8 +17,9 @@
 
 #include "rendering.h"
 
-#include "demofox_path_tracing_simd.h"
+#include "demofox_path_tracing_scalar.h"
 #include "demofox_path_tracing_scalar_branchless.h"
+#include "demofox_path_tracing_simt.h"
 
 // Global instance
 ApplicationState App;
@@ -125,7 +126,7 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 
 	i32 WindowWidth = CW_USEDEFAULT, WindowHeight = CW_USEDEFAULT;
 	i32 WindowTopLeftX = CW_USEDEFAULT, WindowTopLeftY = CW_USEDEFAULT;
-	i32 ClientWidth = 640, ClientHeight = 360;
+	i32 ClientWidth = 640*2, ClientHeight = 360*2;
 	i32 BackbufferResolutionX = 360, BackbufferResolutionY = 360;
 
 	if (FullScreen)
@@ -281,9 +282,15 @@ void ApplicationState::Render()
 
 	f32* RenderTarget = Buffer->RenderTarget;
 	//::Render(RenderTarget, Width, Height, 3);
-
+	//DemofoxRenderScalar(RenderTarget, Width, Height, 3);
 	//DemofoxRenderScalarBranchless(RenderTarget, Width, Height, 3);
-	DemofoxRenderSimd(RenderTarget, Width, Height, 3);
+
+
+	i32 NumTilesX = 2;
+	i32 NumTilesY = 4;
+	i32 TileWidth = Width / NumTilesX;
+	i32 TileHeight = Height / NumTilesY;
+	DemofoxRenderSimt(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3);
 	/*
 	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
@@ -315,19 +322,21 @@ void ApplicationState::Render()
 	}
 	*/
 	// Wide Copy out
-#if 1
+#if 0
 	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
 	u8 *Row = (u8*)Buffer->Memory;
-	for (i32 Y = 0; Y < Height; ++Y)
+	for (u32 Y = 0; Y < Height; ++Y)
 	{
 		u32 *Pixel = (u32*)Row;
-		for (i32 X = 0; X < Width / LANE_COUNT; ++X)
+		for (u32 X = 0; X < Width / LANE_COUNT; ++X)
 		{
-			for (i32 Z = 0; Z < LANE_COUNT; Z++)
+			u32 RegisterIndex = (Y * Width + X * LANE_COUNT) * 3;
+			for (u32 Z = 0; Z < LANE_COUNT; Z++)
 			{
-				u8 R = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 0 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
-				u8 G = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 1 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
-				u8 B = (u8)((i32)(clamp(RenderTarget[(Y * Width + X * LANE_COUNT) * 3 + Z + 2 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				u32 PixelIndex = RegisterIndex + Z;
+				u8 R = (u8)((i32)(clamp(RenderTarget[PixelIndex + 0 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				u8 G = (u8)((i32)(clamp(RenderTarget[PixelIndex + 1 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
+				u8 B = (u8)((i32)(clamp(RenderTarget[PixelIndex + 2 * LANE_COUNT], 0.f, 1.f) * 255) & 0xFF);
 				Pixel[Z] = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
 			}
 
@@ -335,6 +344,48 @@ void ApplicationState::Render()
 		}
 		Row += Buffer->Pitch;
 	}
+#elif 1
+
+	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
+	for (i32 TileX = 0; TileX < NumTilesX; TileX++)
+	{
+		i32 TileMinX = TileX * TileWidth;
+		i32 TileMaxX = TileMinX + (TileWidth - 1);
+		for (i32 TileY = 0; TileY < NumTilesY; TileY++)
+		{
+			i32 TileMinY = TileY * TileHeight;
+			i32 TileMaxY = TileMinY + (TileHeight - 1);
+
+			i32 TileSize = TileHeight * TileWidth * 3;
+			i32 TileYOffset = TileY * TileHeight * Width * 3;
+			i32 TileXOffset = TileSize * TileX;
+			i32 BufferTileOffset = TileXOffset + TileYOffset;
+
+			f32* BufferPos = RenderTarget + BufferTileOffset;
+
+			for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
+			{
+				for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
+				{
+					f32* R = &BufferPos[0];
+					f32* G = &BufferPos[1 * LANE_COUNT];
+					f32* B = &BufferPos[2 * LANE_COUNT];
+
+					m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+					u32* Pixel = (u32*)(Buffer->Memory) + ((u64)Y * (u64)Width + (u64)X);
+					for (u32 Z = 0; Z < LANE_COUNT; Z++)
+					{
+						u8 R = (u8)((i32)(clamp(FrameColor.x.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
+						u8 G = (u8)((i32)(clamp(FrameColor.y.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
+						u8 B = (u8)((i32)(clamp(FrameColor.z.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
+						Pixel[Z] = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
+					}
+					BufferPos += LANE_COUNT * 3;
+				}
+			}
+		}
+	}
+
 #else
 	// Scalar copy out
 

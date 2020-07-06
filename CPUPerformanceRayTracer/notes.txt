@@ -3,15 +3,49 @@
 todos:
 ---------------------------------
 
-texture mapping
+texture mapping / sampling
 
-simd rendering
+simd rendering ----------- Done
 
 threaded rendering
+ - spawn and join threads each frame ---------- Done
+ - Thread pooling
 
 multipass rendering
 
 vertex / pixelshader systems
 
+Render pipeline stages
+- geometry stage
+-- model & view transform
+-- vertex shading
+-- projection
+-- clipping
+-- screen mapping
+
+- rasterization stage
+-- triangle setup
+-- triangle traversal
+-- pixel shading
+-- merging
+
+-- vertex processing
+
+- GPU pipeline
+-- vertex shader
+-- geometry shader
+-- clipping
+-- screen mapping
+-- triangle setup
+-- triangle traversal
+-- pixel shader
+-- merger
+
 (triangle) rasterization pipeline
+
+improved random number generation
+
+spatial data structures
+- bounding volumes
+- frusum pixel bounds
 

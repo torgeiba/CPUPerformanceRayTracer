@@ -346,7 +346,7 @@ f32x3 GetColorForRay(f32x3 startRayPos, f32x3 startRayDir, u32& rngState)
     {
         // shoot a ray out into the world
         SRayHitInfo hitInfo;
-        hitInfo.dist = shouldBreak ? hitInfo.dist : c_superFar;
+        hitInfo.dist = c_superFar;
         TestSceneTrace(rayPos, rayDir, hitInfo, shouldBreak);
 
         // if the ray missed, we are done

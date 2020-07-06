@@ -1,4 +1,4 @@
-#include "demofox_path_tracing_simd.h"
+#include "demofox_path_tracing_simd_tiled.h"
 
 // The minimunm distance a ray must travel before we consider an intersection.
 // This is to prevent a ray from intersecting a surface it just bounced off of.
@@ -28,6 +28,8 @@ static const __m256 MaskTrue{ !MaskFalse };
 static const __m256 ConstOne{ set1_ps(1.f) };
 static const __m256 ConstZero{ set1_ps(0.f) };
 
+static f32 iFrame = 0.f;
+
 static
 u32 wang_hash(u32& seed)
 {
@@ -51,7 +53,7 @@ m256x3 RandomUnitVector(u32& state)
     __m256 wide_z = set_ps(Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state));
     __m256 wide_a = set_ps(Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state));
     __m256 z = wide_z * set1_ps(2.f) - ConstOne;
-    
+
     __m256 a = wide_a * set1_ps(c_twopi);
     __m256 r = sroot(ConstOne - z * z);
     __m256 x = r * cos_ps(a);
@@ -273,109 +275,109 @@ static
 void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 hasTraceTerminated)
 {
     // to move the scene around, since we can't move the camera yet
-    m256x3 sceneTranslation = set1x3_ps( 0.0f, 0.0f, 10.0f );
+    m256x3 sceneTranslation = set1x3_ps(0.0f, 0.0f, 10.0f);
     m256x4 sceneTranslation4 = m256x4{ sceneTranslation.x, sceneTranslation.y, sceneTranslation.z, ConstZero };
 
     // back wall
     {
-        m256x3 A = set1x3_ps( -12.6f, -12.6f, 25.0f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( 12.6f, -12.6f, 25.0f  ) + sceneTranslation;
-        m256x3 C = set1x3_ps( 12.6f, 12.6f, 25.0f   ) + sceneTranslation;
-        m256x3 D = set1x3_ps( -12.6f, 12.6f, 25.0f  ) + sceneTranslation;
+        m256x3 A = set1x3_ps(-12.6f, -12.6f, 25.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps(12.6f, -12.6f, 25.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps(12.6f, 12.6f, 25.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-12.6f, 12.6f, 25.0f) + sceneTranslation;
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.albedo   = blend3_ps(hitInfo.albedo  , set1x3_ps( 0.7f, 0.7f, 0.7f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     // floor
     {
-        m256x3 A = set1x3_ps( -12.6f, -12.45f, 25.0f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( 12.6f, -12.45f, 25.0f  ) + sceneTranslation;
-        m256x3 C = set1x3_ps( 12.6f, -12.45f, 15.0f  ) + sceneTranslation;
-        m256x3 D = set1x3_ps( -12.6f, -12.45f, 15.0f ) + sceneTranslation;
+        m256x3 A = set1x3_ps(-12.6f, -12.45f, 25.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps(12.6f, -12.45f, 25.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps(12.6f, -12.45f, 15.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-12.6f, -12.45f, 15.0f) + sceneTranslation;
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.7f, 0.7f, 0.7f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     // cieling
     {
-        m256x3 A = set1x3_ps( -12.6f, 12.5f, 25.0f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( 12.6f, 12.5f, 25.0f  ) + sceneTranslation;
-        m256x3 C = set1x3_ps( 12.6f, 12.5f, 15.0f  ) + sceneTranslation;
-        m256x3 D = set1x3_ps( -12.6f, 12.5f, 15.0f ) + sceneTranslation;
+        m256x3 A = set1x3_ps(-12.6f, 12.5f, 25.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps(12.6f, 12.5f, 25.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps(12.6f, 12.5f, 15.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-12.6f, 12.5f, 15.0f) + sceneTranslation;
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.7f, 0.7f, 0.7f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     // left wall
     {
-        m256x3 A = set1x3_ps( -12.5f, -12.6f, 25.0f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( -12.5f, -12.6f, 15.0f ) + sceneTranslation;
-        m256x3 C = set1x3_ps( -12.5f, 12.6f, 15.0f  ) + sceneTranslation;
-        m256x3 D = set1x3_ps( -12.5f, 12.6f, 25.0f  ) + sceneTranslation;
+        m256x3 A = set1x3_ps(-12.5f, -12.6f, 25.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps(-12.5f, -12.6f, 15.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps(-12.5f, 12.6f, 15.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-12.5f, 12.6f, 25.0f) + sceneTranslation;
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.7f, 0.1f, 0.1f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.1f, 0.1f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     // right wall 
     {
-        m256x3 A = set1x3_ps( 12.5f, -12.6f, 25.0f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( 12.5f, -12.6f, 15.0f ) + sceneTranslation;
-        m256x3 C = set1x3_ps( 12.5f, 12.6f, 15.0f  ) + sceneTranslation;
-        m256x3 D = set1x3_ps( 12.5f, 12.6f, 25.0f  ) + sceneTranslation;
-                   
+        m256x3 A = set1x3_ps(12.5f, -12.6f, 25.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps(12.5f, -12.6f, 15.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps(12.5f, 12.6f, 15.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(12.5f, 12.6f, 25.0f) + sceneTranslation;
+
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.1f, 0.7f, 0.1f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.1f, 0.7f, 0.1f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     // light
     {
-        m256x3 A = set1x3_ps( -5.0f, 12.4f, 22.5f ) + sceneTranslation;
-        m256x3 B = set1x3_ps( 5.0f, 12.4f, 22.5f  ) + sceneTranslation;
-        m256x3 C = set1x3_ps( 5.0f, 12.4f, 17.5f  ) + sceneTranslation;
-        m256x3 D = set1x3_ps( -5.0f, 12.4f, 17.5f ) + sceneTranslation;
+        m256x3 A = set1x3_ps(-5.0f, 12.4f, 22.5f) + sceneTranslation;
+        m256x3 B = set1x3_ps(5.0f, 12.4f, 22.5f) + sceneTranslation;
+        m256x3 C = set1x3_ps(5.0f, 12.4f, 17.5f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-5.0f, 12.4f, 17.5f) + sceneTranslation;
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, (set1x3_ps( 1.0f, 0.9f, 0.7f ) * set1_ps(20.0f)), cond);
+            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.emissive = blend3_ps(hitInfo.emissive, (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f)), cond);
         }
     }
 
     {
-        __m256 cond = (!(hasTraceTerminated) &&  (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps( -9.0f, -9.5f, 20.0f, 3.0f ) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.9f, 0.9f, 0.75f ), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.9f, 0.75f), cond);
+        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
     }
 
     {
-        __m256 cond =  (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps( 0.0f, -9.5f, 20.0f, 3.0f ) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.9f, 0.75f, 0.9f ), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(0.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.75f, 0.9f), cond);
+        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
     }
 
     {
-        __m256 cond =  (!(hasTraceTerminated) &&  (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps( 9.0f, -9.5f, 20.0f, 3.0f ) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps( 0.9f, 0.75f, 0.9f ), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps( 0.0f, 0.0f, 0.0f ), cond);
+        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.75f, 0.9f), cond);
+        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
     }
 }
 
@@ -383,8 +385,8 @@ static
 m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, /*__m256i& rngState*/u32& rngState)
 {
     // initialize
-    m256x3 ret = set1x3_ps( 0.0f, 0.0f, 0.0f );
-    m256x3 throughput = set1x3_ps( 1.0f, 1.0f, 1.0f );
+    m256x3 ret = set1x3_ps(0.0f, 0.0f, 0.0f);
+    m256x3 throughput = set1x3_ps(1.0f, 1.0f, 1.0f);
     m256x3 rayPos = startRayPos;
     m256x3 rayDir = startRayDir;
 
@@ -400,7 +402,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, /*__m256i& rngStat
         __m256 prevShouldBreak = shouldBreak;
         shouldBreak = (hitInfo.dist == set1_ps(c_superFar));
         {
-            m256x3 ambient = set1x3_ps( .1f, .1f, .1f );
+            m256x3 ambient = set1x3_ps(.15f, .15f, .25f);
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
             ret = blend3_ps(ret, ret + ambient, cond);
@@ -429,16 +431,19 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
 {
     // initialize a random number state based on frag coord and frame
     u32 rngState = u32(u32(fragCoord.x.m256_f32[0]) * u32(1973) + u32(fragCoord.y.m256_f32[0]) * u32(9277) + u32(iFrame) * u32(26699)) | u32(1);
-    /*__m256i rngState = _mm256_or_si256(
-        _mm256_add_epi32(
-        _mm256_add_epi32(_mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.x), _mm256_set1_epi32((u32)1973)),
-        _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.y), _mm256_set1_epi32((u32)9277))),
-        _mm256_mullo_epi32(_mm256_set1_epi32((u32)iFrame), _mm256_set1_epi32((u32)26699))),
-        _mm256_set1_epi32((u32)1));*/
+   /* __m256i rngState_epi =
+        _mm256_or_si256(
+            _mm256_add_epi32(
+                _mm256_add_epi32(
+                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.x), _mm256_set1_epi32((u32)1973)),
+                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.y), _mm256_set1_epi32((u32)9277))),
+                    _mm256_mullo_epi32(_mm256_set1_epi32((u32)iFrame),  _mm256_set1_epi32((u32)26699))),
+            _mm256_set1_epi32((u32)1)
+        );*/
 
 
 
-    // The ray starts at the camera position (the origin)
+        // The ray starts at the camera position (the origin)
     m256x3 rayPosition = m256x3{ ConstZero, ConstZero, ConstZero };
 
     // calculate the camera distance
@@ -465,50 +470,105 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
     return color;
 }
 
-void DemofoxRenderSimd(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumChannels)
+struct RenderBufferInfo
+{
+    f32* BufferDataPtr;
+    i32 BufferWidth;
+    i32 BufferHeight;
+    i32 NumChannels;
+};
+
+struct RenderTileInfo
+{
+    i32 TileX, TileY;
+    i32 TileWidth, TileHeight;
+    i32 TileMinX, TileMaxX;
+    i32 TileMinY, TileMaxY;
+};
+
+void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo)
 {
     m256x2 fragCoord;
     m256x2 iResolution;
 
-    iResolution.x = set1_ps((f32)BufferWidth );
-    iResolution.y = set1_ps((f32)BufferHeight);
-
-    i32 YHeight = BufferHeight;
-    i32 XWidth = (BufferWidth / LANE_COUNT);
+    iResolution.x = set1_ps((f32)BufferInfo.BufferWidth);
+    iResolution.y = set1_ps((f32)BufferInfo.BufferHeight);
 
     __m256 XLaneOffsets = set_ps(7.f, 6.f, 5.f, 4.f, 3.f, 2.f, 1.f, 0.f);
 
-    f32* BufferPos = BufferOut;
+    i32 TileSize    = TileInfo.TileHeight * TileInfo.TileWidth * BufferInfo.NumChannels;
+    i32 TileYOffset = TileInfo.TileY * TileInfo.TileHeight * BufferInfo.BufferWidth * BufferInfo.NumChannels;
+    i32 TileXOffset = TileSize * TileInfo.TileX;
+    i32 BufferTileOffset = TileXOffset + TileYOffset;
 
-    static f32 iFrame = 0.f;
-    iFrame += 1.0f;
+    f32* BufferPos = BufferInfo.BufferDataPtr + BufferTileOffset;
 
-    for (i32 Y = 0; Y < YHeight; Y++)
+    //i32 YHeight = BufferInfo.BufferHeight;
+    i32 XWidth = (BufferInfo.BufferWidth / LANE_COUNT);
+
+    for (i32 Y = TileInfo.TileMinY; Y <= TileInfo.TileMaxY; Y++)
     {
-        fragCoord.y = set1_ps((f32)(YHeight - 1 - Y));
-        for (i32 X = 0; X < XWidth; X++)
+        fragCoord.y = set1_ps((f32)(BufferInfo.BufferHeight - 1 - Y));
+        for (i32 X = TileInfo.TileMinX; X <= TileInfo.TileMaxX; X+=LANE_COUNT)
         {
-            fragCoord.x = set1_ps((f32)X * LANE_COUNT) + XLaneOffsets;
+            fragCoord.x = set1_ps((f32)X) + XLaneOffsets;
 
             m256x3 color = mainImage(fragCoord, iResolution, iFrame);
 
-            // average the frames together
-            m256x3 lastFrameColor = m256x3{ 
-                load_ps(&BufferPos[0]),
-                load_ps(&BufferPos[1 * LANE_COUNT]),
-                load_ps(&BufferPos[2 * LANE_COUNT])
-            };
-            ////color; // texture(iChannel0, fragCoord / iResolution.xy).rgb;
+            f32* R = &BufferPos[0];
+            f32* G = &BufferPos[1 * LANE_COUNT];
+            f32* B = &BufferPos[2 * LANE_COUNT];
 
+            // average the frames together
+            m256x3 lastFrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+            ////color; // texture(iChannel0, fragCoord / iResolution.xy).rgb;
 
             color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
 
-            non_temporal_store(BufferPos, color.x);
-            BufferPos += LANE_COUNT;
-            non_temporal_store(BufferPos, color.y);
-            BufferPos += LANE_COUNT;
-            non_temporal_store(BufferPos, color.z);
-            BufferPos += LANE_COUNT;
+            non_temporal_store(R, color.x);
+            non_temporal_store(G, color.y);
+            non_temporal_store(B, color.z);
+            BufferPos += LANE_COUNT * 3;
+        }
+    }
+
+}
+
+void DemofoxRenderSimdTiled(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels)
+{
+    RenderBufferInfo BufferInfo;
+    {
+        BufferInfo.BufferDataPtr = BufferOut;
+        BufferInfo.BufferWidth = BufferWidth;
+        BufferInfo.BufferHeight = BufferHeight;
+        BufferInfo.NumChannels = NumChannels;
+    }
+
+    iFrame += 1.0f;
+
+    for (i32 TileX = 0; TileX < NumTilesX; TileX++)
+    {
+        i32 TileMinX = TileX * TileWidth;
+        i32 TileMaxX = TileMinX + (TileWidth - 1);
+        for (i32 TileY = 0; TileY < NumTilesY; TileY++)
+        {
+            // render tile (TileX, TileY)
+            i32 TileMinY = TileY * TileHeight;
+            i32 TileMaxY = TileMinY + (TileHeight - 1);
+
+            RenderTileInfo TileInfo;
+            {
+                TileInfo.TileX = TileX;
+                TileInfo.TileY = TileY;
+                TileInfo.TileHeight = TileHeight;
+                TileInfo.TileWidth = TileWidth;
+                TileInfo.TileMinX = TileMinX;
+                TileInfo.TileMaxX = TileMaxX;
+                TileInfo.TileMinY = TileMinY;
+                TileInfo.TileMaxY = TileMaxY;
+            }
+
+            RenderTile(BufferInfo, TileInfo);
         }
     }
 }
