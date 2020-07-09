@@ -20,6 +20,7 @@
 #include "demofox_path_tracing_scalar.h"
 #include "demofox_path_tracing_scalar_branchless.h"
 #include "demofox_path_tracing_simt.h"
+#include "demofox_path_tracing_simt_pooled.h"
 
 // Global instance
 ApplicationState App;
@@ -164,7 +165,8 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	}
 	// Initialize with fixed backbuffer resolution
 	BackBuffer.Resize(BackbufferResolutionX, BackbufferResolutionY);
-	Render();
+
+	Render();// TEMP NOTE TODO: do not render here while resize code is unsafe for threads
 
 	std::string fps_str;
 
@@ -290,7 +292,7 @@ void ApplicationState::Render()
 	i32 NumTilesY = 4;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderSimt(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3);
+	DemofoxRenderSimtPooled(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3);
 	/*
 	Sphere sphere = { {-3.f, 0.f, -16.f }, 4.f};
 
@@ -419,6 +421,8 @@ LRESULT ApplicationState::Win32MainWindowCallback(HWND Window, u32 Message, u64 
 	{
 		Win32GetWindowClientDimensions(Window, CurrentWindowWidth, CurrentWindowHeight);
 		BackBuffer.Resize(CurrentWindowWidth, CurrentWindowHeight);
+		
+		// TODO: NOTE: currently pooled threaded rendering does not handle this well
 		Render();
 	} break;
 	case WM_DESTROY: // Should be handled as an error

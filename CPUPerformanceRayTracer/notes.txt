@@ -3,6 +3,12 @@
 todos:
 ---------------------------------
 
+shuffle out SIMD packed channel pixel ordering to BMP display order
+RRRRRRRRGGGGGGGGBBBBBBBB
+to
+RGBRGBRGBRGBRGBRGBRGBRGB
+
+
 texture mapping / sampling
 
 simd rendering ----------- Done
@@ -10,6 +16,8 @@ simd rendering ----------- Done
 threaded rendering
  - spawn and join threads each frame ---------- Done
  - Thread pooling
+ - ensure that resizing backbuffer and rendertarget does not interfere with threaded rendering
+ - threading of copy from rendertarget to BMP display buffer
 
 multipass rendering
 

@@ -121,9 +121,11 @@
     <ClCompile Include="demofox_path_tracing_simd.cpp" />
     <ClCompile Include="demofox_path_tracing_simd_tiled.cpp" />
     <ClCompile Include="demofox_path_tracing_simt.cpp" />
+    <ClCompile Include="demofox_path_tracing_simt_pooled.cpp" />
     <ClCompile Include="mathlib.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
+    <ClCompile Include="threading.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -134,6 +136,7 @@
     <ClInclude Include="demofox_path_tracing_simd.h" />
     <ClInclude Include="demofox_path_tracing_simd_tiled.h" />
     <ClInclude Include="demofox_path_tracing_simt.h" />
+    <ClInclude Include="demofox_path_tracing_simt_pooled.h" />
     <ClInclude Include="mathlib.h" />
     <ClInclude Include="rendering.h" />
     <ClInclude Include="utils.h" />

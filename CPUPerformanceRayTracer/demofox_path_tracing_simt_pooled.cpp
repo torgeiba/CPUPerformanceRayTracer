@@ -1,4 +1,4 @@
-#include "demofox_path_tracing_simt.h"
+#include "demofox_path_tracing_simt_pooled.h"
 
 #include <thread>
 
@@ -237,7 +237,6 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x3 a, 
         dist = (intersectPos.z - rayPos.z) / rayDir.z;
         dist = blend_ps(dist, (intersectPos.y - rayPos.y) / rayDir.y, cond2);
         dist = blend_ps(dist, (intersectPos.x - rayPos.x) / rayDir.x, cond1);
-
     }
 
     {
@@ -468,19 +467,19 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
 {
     // initialize a random number state based on frag coord and frame
     //u32 rngState = u32(u32(fragCoord.x.m256_f32[0]) * u32(1973) + u32(fragCoord.y.m256_f32[0]) * u32(9277) + u32(iFrame) * u32(26699)) | u32(1);
-     __m256i rngState_epi =
-         _mm256_or_si256(
-             _mm256_add_epi32(
-                 _mm256_add_epi32(
-                     _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.x), _mm256_set1_epi32((u32)1973)),
-                     _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.y), _mm256_set1_epi32((u32)9277))),
-                     _mm256_mullo_epi32(_mm256_set1_epi32((u32)iFrame),  _mm256_set1_epi32((u32)26699))),
-             _mm256_set1_epi32((u32)1)
-         );
+    __m256i rngState_epi =
+        _mm256_or_si256(
+            _mm256_add_epi32(
+                _mm256_add_epi32(
+                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.x), _mm256_set1_epi32((u32)1973)),
+                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.y), _mm256_set1_epi32((u32)9277))),
+                _mm256_mullo_epi32(_mm256_set1_epi32((u32)iFrame), _mm256_set1_epi32((u32)26699))),
+            _mm256_set1_epi32((u32)1)
+        );
 
 
 
-         // The ray starts at the camera position (the origin)
+    // The ray starts at the camera position (the origin)
     m256x3 rayPosition = m256x3{ ConstZero, ConstZero, ConstZero };
 
     // calculate the camera distance
@@ -571,7 +570,72 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo)
 
 }
 
-void DemofoxRenderSimt(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels)
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+
+struct WorkerThread
+{
+    RenderBufferInfo BufferInfo; // TODO: this may be updated. make safe
+    RenderTileInfo TileInfo;
+
+    // Threading objects
+    std::condition_variable condVarStart;
+    std::mutex mtx;
+    std::thread thread;
+
+    bool bShouldRender = false;
+};
+
+static bool threadpooluninitialized = true;
+static constexpr i32 NumMaxThreads = 8;
+static WorkerThread workerThreads[NumMaxThreads];
+
+// Shared
+static std::atomic<i32> NumWorkersComplete;
+
+// Main thread (consumer) wait
+static std::mutex worker_completed_mutex;
+static std::condition_variable all_workers_completed;
+
+void DoWorkerThreadWork(i32 WorkerIndex)
+{
+    while (true)
+    {
+        std::unique_lock<std::mutex> lm(workerThreads[WorkerIndex].mtx);
+        workerThreads[WorkerIndex].condVarStart.wait(lm, [WorkerIndex]() {
+            return workerThreads[WorkerIndex].bShouldRender;
+        });
+
+        RenderTile(workerThreads[WorkerIndex].BufferInfo, workerThreads[WorkerIndex].TileInfo);
+        NumWorkersComplete++;
+        workerThreads[WorkerIndex].bShouldRender = false;
+        all_workers_completed.notify_one();
+        lm.unlock();
+    }
+}
+
+void InitializeThreadPool(i32 NumThreads)
+{
+    NumWorkersComplete = 0;
+    for (i32 WorkerIndex = 0; WorkerIndex < NumThreads; WorkerIndex++)
+    {
+        workerThreads[WorkerIndex].thread = std::thread(&DoWorkerThreadWork, WorkerIndex);
+    }
+}
+
+void StartWorkerThread(i32 WorkerIndex, const RenderBufferInfo& BufferInfo, const RenderTileInfo& TileInfo)
+{
+    std::unique_lock<std::mutex> lm(workerThreads[WorkerIndex].mtx);
+    workerThreads[WorkerIndex].BufferInfo = BufferInfo;
+    workerThreads[WorkerIndex].TileInfo = TileInfo;
+    workerThreads[WorkerIndex].bShouldRender = true;
+    workerThreads[WorkerIndex].condVarStart.notify_one();
+    lm.unlock();
+}
+
+void DemofoxRenderSimtPooled(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels)
 {
     RenderBufferInfo BufferInfo;
     {
@@ -581,11 +645,20 @@ void DemofoxRenderSimt(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 Nu
         BufferInfo.NumChannels = NumChannels;
     }
 
+    i32 NumThreads = NumTilesX * NumTilesY;
+
+    // If first time we render, initialize threadpool. TODO: do this at app initialization instead
+    if (threadpooluninitialized)
+    {
+        InitializeThreadPool(NumThreads);
+        threadpooluninitialized = false;
+    }
+
     iFrame += 1.0f;
 
+    // Notify all required threads from the thread pool to render each of their tiles
 
-    constexpr i32 nMaxThreads = 32;
-    std::thread t[nMaxThreads];
+    NumWorkersComplete = 0;
 
     for (i32 TileX = 0; TileX < NumTilesX; TileX++)
     {
@@ -610,11 +683,25 @@ void DemofoxRenderSimt(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 Nu
             }
 
             i32 FlatTileIndex = TileX + NumTilesX * TileY;
-
-            t[FlatTileIndex] = std::thread(&RenderTile, BufferInfo, TileInfo);
+            StartWorkerThread(FlatTileIndex, BufferInfo, TileInfo);
         }
     }
 
-    i32 NumThreads = NumTilesX * NumTilesY;
-    for (i32 ThreadID = 0; ThreadID < NumThreads; ThreadID++) { t[ThreadID].join(); }
+    // When each thread is done rendering, it will signal that it is done
+    // and go back to wait again.
+    // If a thread is the last thread to and the main thread will 
+    
+    
+    // wait on condition NumWorkersComplete < NumThreads to be false
+
+    std::unique_lock<std::mutex> wclck(worker_completed_mutex);
+    all_workers_completed.wait(wclck, [NumThreads]() { 
+        return NumWorkersComplete >= NumThreads;
+    });
+
+    //while (NumWorkersComplete < NumThreads) { 
+    //   // std::this_thread::sleep_for(std::chrono::milliseconds(0));
+    //}
+
+   // for (i32 ThreadID = 0; ThreadID < NumThreads; ThreadID++) { t[ThreadID].join(); }
 }

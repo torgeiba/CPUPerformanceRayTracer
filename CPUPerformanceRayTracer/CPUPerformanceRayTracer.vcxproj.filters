@@ -51,6 +51,12 @@
     <ClCompile Include="demofox_path_tracing_simt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="threading.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_simt_pooled.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils.h">
@@ -81,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="demofox_path_tracing_simt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simt_pooled.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
