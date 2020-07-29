@@ -32,41 +32,6 @@ static const __m256 ConstZero{ set1_ps(0.f) };
 
 static f32 iFrame = 0.f;
 
-//static
-//u32 wang_hash(u32& seed)
-//{
-//    seed = u32(seed ^ u32(61)) ^ u32(seed >> u32(16));
-//    seed *= u32(9);
-//    seed = seed ^ (seed >> 4);
-//    seed *= u32(0x27d4eb2d);
-//    seed = seed ^ (seed >> 15);
-//    return seed;
-//}
-//
-//static
-//f32 Randomf3201(u32& state)
-//{
-//    return f32(wang_hash(state)) / 4294967296.0f;
-//}
-//
-//static
-//m256x3 RandomUnitVector(u32& state)
-//{
-//    __m256 wide_z = set_ps(Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state));
-//    __m256 wide_a = set_ps(Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state), Randomf3201(state));
-//    __m256 z = wide_z * set1_ps(2.f) - ConstOne;
-//
-//    __m256 a = wide_a * set1_ps(c_twopi);
-//    __m256 r = sroot(ConstOne - z * z);
-//    __m256 x = r * cos_ps(a);
-//    __m256 y = r * sin_ps(a);
-//    return m256x3{ x, y, z };
-//}
-
-
-
-//_mm256_srai_epi32
-//_mm256_srli_epi32/
 static
 __m256i wang_hash_ps(__m256i& seeds)
 {
@@ -589,7 +554,7 @@ struct WorkerThread
 };
 
 static bool threadpooluninitialized = true;
-static constexpr i32 NumMaxThreads = 8;
+static constexpr i32 NumMaxThreads = 12;
 static WorkerThread workerThreads[NumMaxThreads];
 
 // Shared

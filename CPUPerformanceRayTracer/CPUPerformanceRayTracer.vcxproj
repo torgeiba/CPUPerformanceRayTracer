@@ -115,6 +115,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="asset_loading.cpp" />
     <ClCompile Include="demofox_path_tracing.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar_branchless.cpp" />
@@ -130,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="asset_loading.h" />
     <ClInclude Include="demofox_path_tracing.h" />
     <ClInclude Include="demofox_path_tracing_scalar.h" />
     <ClInclude Include="demofox_path_tracing_scalar_branchless.h" />
@@ -138,7 +140,11 @@
     <ClInclude Include="demofox_path_tracing_simt.h" />
     <ClInclude Include="demofox_path_tracing_simt_pooled.h" />
     <ClInclude Include="mathlib.h" />
+    <ClInclude Include="old_code.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="rendering.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
