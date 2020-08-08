@@ -42,9 +42,6 @@
     <ClCompile Include="threading.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_simt_pooled.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="demofox_path_tracing.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
@@ -68,6 +65,24 @@
     </ClCompile>
     <ClCompile Include="asset_loading.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="work_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_simt_pooled.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_simt_textured.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_v3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_v2.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +126,24 @@
       <Filter>Third Party</Filter>
     </ClInclude>
     <ClInclude Include="asset_loading.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="threading.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="work_queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simt_textured.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_v2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_v3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

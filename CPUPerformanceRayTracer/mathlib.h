@@ -229,6 +229,13 @@ inline __m256 round_nearest(__m256 a) { return _mm256_round_ps(a, _MM_FROUND_NIN
 inline __m256 fract(__m256 a) { return sub(a, round_floor(a)); }
 
 inline __m256 clamp(__m256 x, __m256 minval, __m256 maxval) { return min_ps(max_ps(x, minval), maxval); }
+inline m256x3 clamp(m256x3 x, m256x3 minval, m256x3 maxval) {
+	return m256x3{
+		clamp(x.x, minval.x, maxval.x),
+		clamp(x.y, minval.y, maxval.y),
+		clamp(x.z, minval.z, maxval.z)
+	};
+}
 
 inline f32 rcp(f32 a) { return 1.f / a;    } // reciprocal
 inline __m256 rcp(__m256 a)   { return _mm256_rcp_ps(a); } // reciprocal

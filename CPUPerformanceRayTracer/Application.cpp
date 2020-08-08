@@ -19,8 +19,9 @@
 
 #include "demofox_path_tracing_scalar.h"
 #include "demofox_path_tracing_scalar_branchless.h"
-#include "demofox_path_tracing_simt.h"
-#include "demofox_path_tracing_simt_pooled.h"
+//#include "demofox_path_tracing_simt.h"
+//#include "demofox_path_tracing_simt_textured.h"
+#include "demofox_path_tracing_v3.h"
 
 // Global instance
 ApplicationState App;
@@ -102,8 +103,18 @@ inline void ApplicationState::RunMessageLoop() {
 	}
 }
 
+#include "asset_loading.h"
+texture Texture;
+
 void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 {
+
+	
+	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\Delta_2k.hdr";
+	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
+
+	Texture = LoadTexture(texturefilePath);
+
 	WNDCLASSA WindowClass = {};
 	{
 		WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
@@ -248,10 +259,12 @@ void ApplicationState::Render()
 	f32* RenderTarget = Buffer->RenderTarget;
 
 	i32 NumTilesX = 2;
-	i32 NumTilesY = 6;
+	i32 NumTilesY = 4;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderSimtPooled(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3);
+	DemofoxRenderV3(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+
+	f32 c_exposure = .5;
 
 	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
 	for (i32 TileX = 0; TileX < NumTilesX; TileX++)
@@ -279,6 +292,7 @@ void ApplicationState::Render()
 					f32* B = &BufferPos[2 * LANE_COUNT];
 
 					m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+					FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
 					u32* Pixel = (u32*)(Buffer->Memory) + ((u64)Y * (u64)Width + (u64)X);
 					for (u32 Z = 0; Z < LANE_COUNT; Z++)
 					{

@@ -1,6 +1,8 @@
-#include "demofox_path_tracing_simt_pooled.h"
+#include "demofox_path_tracing_v2.h"
 
-#include <thread>
+//#include <thread>
+
+#include "work_queue.h"
 
 // The minimunm distance a ray must travel before we consider an intersection.
 // This is to prevent a ray from intersecting a surface it just bounced off of.
@@ -98,12 +100,54 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 //    return m256x3{ x, y, z };
 //}
 
+//// ACES tone mapping curve fit to go from HDR to LDR
+////https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+//m256x3 ACESFilm(m256x3 X)
+//{
+//    f32 a = 2.51f;
+//    f32 b = 0.03f;
+//    f32 c = 2.43f;
+//    f32 d = 0.59f;
+//    f32 e = 0.14f;
+//    return clamp((X * (a * X + b)) / (X * (c * X + d) + e), set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+//}
+//
+//m256x3 LinearToSRGB(m256x3 rgb)
+//{
+//    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+//
+//    return m256x3{
+//        blend_ps(pow_ps(rgb.x, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.x * 12.92f, rgb.x < set1_ps(0.0031308f)),
+//        blend_ps(pow_ps(rgb.y, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.y * 12.92f, rgb.y < set1_ps(0.0031308f)),
+//        blend_ps(pow_ps(rgb.z, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.z * 12.92f, rgb.z < set1_ps(0.0031308f))
+//    };
+//}
+//
+//m256x3 SRGBToLinear(m256x3 rgb)
+//{
+//    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+//
+//    return m256x3{
+//        blend_ps(pow_ps((rgb.x + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.x / 12.92f, rgb.x < set1_ps(0.04045f)),
+//        blend_ps(pow_ps((rgb.y + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.y / 12.92f, rgb.y < set1_ps(0.04045f)),
+//        blend_ps(pow_ps((rgb.z + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.z / 12.92f, rgb.z < set1_ps(0.04045f))
+//    };
+//}
+
+struct SMaterialInfo
+{
+    m256x3 albedo;
+    m256x3 emissive;
+    m256x3 specularColor;
+    __m256 percentSpecular;
+    __m256 roughness;
+};
+
 struct SRayHitInfo
 {
     __m256 dist;
     m256x3 normal;
-    m256x3 albedo;
-    m256x3 emissive;
+    SMaterialInfo material;
 };
 
 static
@@ -288,8 +332,11 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
@@ -302,8 +349,11 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
@@ -316,8 +366,11 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
@@ -330,8 +383,11 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.7f, 0.1f, 0.1f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.1f, 0.1f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
@@ -344,8 +400,11 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.1f, 0.7f, 0.1f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.1f, 0.7f, 0.1f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
@@ -358,32 +417,44 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.emissive = blend3_ps(hitInfo.emissive, (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f)), cond);
+            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f)), cond);
+            hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.0f), cond);
+            hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.0f), cond);
+            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
         }
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.9f, 0.75f), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.9f, 0.9f, 0.5f), cond);
+        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.1f), cond);
+        hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.2f), cond);
+        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.9f, 0.9f, 0.9f), cond);
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(0.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.75f, 0.9f), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.9f, 0.5f, 0.9f), cond);
+        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.3f), cond);
+        hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.2f), cond);
+        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.9f, 0.9f, 0.9f), cond);
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.albedo = blend3_ps(hitInfo.albedo, set1x3_ps(0.9f, 0.75f, 0.9f), cond);
-        hitInfo.emissive = blend3_ps(hitInfo.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.f, 0.f, 1.f), cond);
+        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+        hitInfo.material.percentSpecular = blend_ps(hitInfo.material.percentSpecular, set1_ps(0.5f), cond);
+        hitInfo.material.roughness = blend_ps(hitInfo.material.roughness, set1_ps(0.4f), cond);
+        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(1.f, 0.f, 0.f), cond);
     }
 }
 
 static
-m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/)
+m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/, texture& Texture)
 {
     // initialize
     m256x3 ret = set1x3_ps(0.0f, 0.0f, 0.0f);
@@ -403,7 +474,12 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         __m256 prevShouldBreak = shouldBreak;
         shouldBreak = (hitInfo.dist == set1_ps(c_superFar));
         {
-            m256x3 ambient = set1x3_ps(.15f, .15f, .25f);
+            m256x3 SampleDir = rayDir;
+            SampleDir.x = -rayDir.x;
+            SampleDir.z = -rayDir.z;
+            //m256x3 ambient = EquirectangularTextureSample(Texture, SampleDir);
+            m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
+            ambient *= throughput;
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
             ret = blend3_ps(ret, ret + ambient, cond);
@@ -412,23 +488,42 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         // update the ray position
         rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
 
+        __m256 doSpecular = Randomf3201_ps(rngState) < hitInfo.material.percentSpecular;
+
         // calculate new ray direction, in a cosine weighted hemisphere oriented at normal
-        rayDir = blend3_ps(normalize(hitInfo.normal + RandomUnitVector_ps(rngState)), rayDir, shouldBreak);
+        {
+            doSpecular = blend_ps(ConstZero, ConstOne, doSpecular);
+
+            m256x3 unnormalizedNewRayDir = hitInfo.normal + RandomUnitVector_ps(rngState);
+            //__m256 safeNewRayDir = dot(unnormalizedNewRayDir, unnormalizedNewRayDir) > set1_ps(0.001);
+            m256x3 diffuseRayDir = normalize(unnormalizedNewRayDir);
+
+            // reflect
+            m256x3 specularRayDir = rayDir - 2.f * hitInfo.normal * dot(rayDir, hitInfo.normal);
+
+            __m256 roughnessSqrd = hitInfo.material.roughness * hitInfo.material.roughness;
+            specularRayDir = normalize(lerp(specularRayDir, diffuseRayDir, roughnessSqrd));
+
+            m256x3 newRayDir = lerp(diffuseRayDir, specularRayDir, doSpecular);
+
+            rayDir = blend3_ps(newRayDir, rayDir, shouldBreak);
+        }
 
         // add in emissive lighting
-        ret = blend3_ps((ret + hitInfo.emissive * throughput), ret, shouldBreak);
+        ret = blend3_ps((ret + hitInfo.material.emissive * throughput), ret, shouldBreak);
 
         // update the colorMultiplier
         //throughput = shouldBreak ? throughput :
         //    (throughput * hitInfo.albedo);
-        throughput = blend3_ps((throughput * hitInfo.albedo), throughput, shouldBreak);
+        m256x3 newThroughput = throughput * lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular);
+        throughput = blend3_ps(newThroughput, throughput, shouldBreak);
     }
 
     // return pixel color
     return ret;
 }
 
-static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
+static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, texture& Texture)
 {
     // initialize a random number state based on frag coord and frame
     //u32 rngState = u32(u32(fragCoord.x.m256_f32[0]) * u32(1973) + u32(fragCoord.y.m256_f32[0]) * u32(9277) + u32(iFrame) * u32(26699)) | u32(1);
@@ -452,7 +547,8 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
 
     // calculate coordinates of the ray target on the imaginary pixel plane.
     // -1 to +1 on x,y axis. 1 unit away on the z axis
-    m256x2 rayTargetxy = (fragCoord / iResolution) * 2.0f - m256x2{ ConstOne, ConstOne };
+    m256x2 jitter = m256x2{ Randomf3201_ps(rngState_epi), Randomf3201_ps(rngState_epi) } - .5f;
+    m256x2 rayTargetxy = ((fragCoord + jitter) / iResolution) * 2.0f - m256x2{ ConstOne, ConstOne };
     m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, set1_ps(cameraDistance) };
 
     // correct for aspect ratio
@@ -466,7 +562,7 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame)
     // raytrace for this pixel
     m256x3 color{ ConstZero, ConstZero, ConstZero };
     for (int index = 0; index < c_numRendersPerFrame; ++index)
-        color += (GetColorForRay(rayPosition, rayDir, rngState_epi) * (1.f / (c_numRendersPerFrame)));
+        color += (GetColorForRay(rayPosition, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
 
     return color;
 }
@@ -487,7 +583,7 @@ struct RenderTileInfo
     i32 TileMinY, TileMaxY;
 };
 
-static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo)
+static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, texture& Texture)
 {
     m256x2 fragCoord;
     m256x2 iResolution;
@@ -514,7 +610,7 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo)
         {
             fragCoord.x = set1_ps((f32)X) + XLaneOffsets;
 
-            m256x3 color = mainImage(fragCoord, iResolution, iFrame);
+            m256x3 color = mainImage(fragCoord, iResolution, iFrame, Texture);
 
             f32* R = &BufferPos[0];
             f32* G = &BufferPos[1 * LANE_COUNT];
@@ -535,72 +631,29 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo)
 
 }
 
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <mutex>
-
-struct WorkerThread
+struct WorkerThreadData
 {
     RenderBufferInfo BufferInfo; // TODO: this may be updated. make safe
     RenderTileInfo TileInfo;
-
-    // Threading objects
-    std::condition_variable condVarStart;
-    std::mutex mtx;
-    std::thread thread;
-
-    bool bShouldRender = false;
+    texture Texture;
 };
 
+static constexpr i32 NumMaxThreads = 8;
 static bool threadpooluninitialized = true;
-static constexpr i32 NumMaxThreads = 12;
-static WorkerThread workerThreads[NumMaxThreads];
+static WorkerThreadData WorkData[NumMaxThreads];
 
-// Shared
-static std::atomic<i32> NumWorkersComplete;
-
-// Main thread (consumer) wait
-static std::mutex worker_completed_mutex;
-static std::condition_variable all_workers_completed;
-
-void DoWorkerThreadWork(i32 WorkerIndex)
+static WORK_QUEUE_CALLBACK(DoWorkerThreadWork) // test callback function
 {
-    while (true)
-    {
-        std::unique_lock<std::mutex> lm(workerThreads[WorkerIndex].mtx);
-        workerThreads[WorkerIndex].condVarStart.wait(lm, [WorkerIndex]() {
-            return workerThreads[WorkerIndex].bShouldRender;
-        });
-
-        RenderTile(workerThreads[WorkerIndex].BufferInfo, workerThreads[WorkerIndex].TileInfo);
-        NumWorkersComplete++;
-        workerThreads[WorkerIndex].bShouldRender = false;
-        all_workers_completed.notify_one();
-        lm.unlock();
-    }
+    WorkerThreadData* WorkerData = (WorkerThreadData*)Data;
+    RenderTile(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->Texture);
 }
 
-void InitializeThreadPool(i32 NumThreads)
-{
-    NumWorkersComplete = 0;
-    for (i32 WorkerIndex = 0; WorkerIndex < NumThreads; WorkerIndex++)
-    {
-        workerThreads[WorkerIndex].thread = std::thread(&DoWorkerThreadWork, WorkerIndex);
-    }
-}
+static work_queue* Queue;
 
-void StartWorkerThread(i32 WorkerIndex, const RenderBufferInfo& BufferInfo, const RenderTileInfo& TileInfo)
-{
-    std::unique_lock<std::mutex> lm(workerThreads[WorkerIndex].mtx);
-    workerThreads[WorkerIndex].BufferInfo = BufferInfo;
-    workerThreads[WorkerIndex].TileInfo = TileInfo;
-    workerThreads[WorkerIndex].bShouldRender = true;
-    workerThreads[WorkerIndex].condVarStart.notify_one();
-    lm.unlock();
-}
 
-void DemofoxRenderSimtPooled(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels)
+void DemofoxRenderV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+    texture Texture
+)
 {
     RenderBufferInfo BufferInfo;
     {
@@ -615,15 +668,11 @@ void DemofoxRenderSimtPooled(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, 
     // If first time we render, initialize threadpool. TODO: do this at app initialization instead
     if (threadpooluninitialized)
     {
-        InitializeThreadPool(NumThreads);
+        Queue = MakeWorkQueue();
         threadpooluninitialized = false;
     }
 
     iFrame += 1.0f;
-
-    // Notify all required threads from the thread pool to render each of their tiles
-
-    NumWorkersComplete = 0;
 
     for (i32 TileX = 0; TileX < NumTilesX; TileX++)
     {
@@ -654,25 +703,13 @@ void DemofoxRenderSimtPooled(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, 
             }
 
             i32 FlatTileIndex = TileX + NumTilesX * TileY;
-            StartWorkerThread(FlatTileIndex, BufferInfo, TileInfo);
+            WorkData[FlatTileIndex].BufferInfo = BufferInfo;
+            WorkData[FlatTileIndex].TileInfo = TileInfo;
+            WorkData[FlatTileIndex].Texture = Texture;
+            void* DataPointer = &WorkData[FlatTileIndex];
+            AddWorkQueueEntry(Queue, DoWorkerThreadWork, DataPointer);
         }
     }
 
-    // When each thread is done rendering, it will signal that it is done
-    // and go back to wait again.
-    // If a thread is the last thread to and the main thread will 
-    
-    
-    // wait on condition NumWorkersComplete < NumThreads to be false
-
-    std::unique_lock<std::mutex> wclck(worker_completed_mutex);
-    all_workers_completed.wait(wclck, [NumThreads]() { 
-        return NumWorkersComplete >= NumThreads;
-    });
-
-    //while (NumWorkersComplete < NumThreads) { 
-    //   // std::this_thread::sleep_for(std::chrono::milliseconds(0));
-    //}
-
-   // for (i32 ThreadID = 0; ThreadID < NumThreads; ThreadID++) { t[ThreadID].join(); }
+    CompleteAllWork(Queue);
 }

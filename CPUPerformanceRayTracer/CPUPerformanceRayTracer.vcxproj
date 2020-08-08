@@ -123,11 +123,16 @@
     <ClCompile Include="demofox_path_tracing_simd_tiled.cpp" />
     <ClCompile Include="demofox_path_tracing_simt.cpp" />
     <ClCompile Include="demofox_path_tracing_simt_pooled.cpp" />
+    <ClCompile Include="demofox_path_tracing_simt_textured.cpp" />
+    <ClCompile Include="demofox_path_tracing_v2.cpp" />
+    <ClCompile Include="demofox_path_tracing_v3.cpp" />
     <ClCompile Include="mathlib.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
+    <ClCompile Include="texture.cpp" />
     <ClCompile Include="threading.cpp" />
     <ClCompile Include="utils.cpp" />
+    <ClCompile Include="work_queue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
@@ -139,13 +144,19 @@
     <ClInclude Include="demofox_path_tracing_simd_tiled.h" />
     <ClInclude Include="demofox_path_tracing_simt.h" />
     <ClInclude Include="demofox_path_tracing_simt_pooled.h" />
+    <ClInclude Include="demofox_path_tracing_simt_textured.h" />
+    <ClInclude Include="demofox_path_tracing_v2.h" />
+    <ClInclude Include="demofox_path_tracing_v3.h" />
     <ClInclude Include="mathlib.h" />
     <ClInclude Include="old_code.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="rendering.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="texture.h" />
+    <ClInclude Include="threading.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="work_queue.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="DisasmOptimizedVectorized.txt" />

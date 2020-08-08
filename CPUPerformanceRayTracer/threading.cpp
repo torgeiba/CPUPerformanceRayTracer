@@ -1,6 +1,649 @@
+#include "threading.h"
+
 #include "emmintrin.h"
 #include "xmmintrin.h"
 #include "intrin.h"
+
+//#include <ppl.h>
+
+#include "work_queue.h"
+
+// https://docs.microsoft.com/en-us/cpp/parallel/concrt/concurrency-runtime?view=vs-2019
+
+// Write barrier compiler intrinsic marker (not function calls)
+
+// memory fence ( processor should not reorder across a fence )
+// _mm_mfence() mem   // (x64 might retire writes in order anyway)
+// _mm_lfence() load
+// _mm_sfence() store // (x64 might retire writes in order anyway)
+// https://community.intel.com/t5/Intel-C-Compiler/what-is-the-effects-of-mm-lfence-and-mm-sfence/td-p/871883
+
+// Specifically:
+/*
+"The _mm_?fence therefore serves to purposes: 1) inform the compiler of the requirement of pending reads or writes not to be moved before or after the specified fence statement.
+ And 2) the compiler is to insert an appropriate processor fence instruction, or lacking that a function call to perform the equivalent fencing behavior."
+*/
+
+/*
+// https://stackoverflow.com/questions/4537753/when-should-i-use-mm-sfence-mm-lfence-and-mm-mfence
+All of this is because x86 has a strong memory model, but C++ has a weak memory model. Preventing compile-time reordering is all you need to do.
+Inserting lfence or sfence may not hurt performance much, but they're not necessary if you haven't used weakly-ordered MOVNT loads or stores
+
+NOTE: dubious info: according to handmade hero day 125 the memory model has been *weakened*
+*/
+#define CompletePastWritesBeforeFutureWrites _WriteBarrier();  _mm_sfence();
+#define CompletePastReadsBeforeFutureReads _ReadBarrier();    _mm_lfence();
+
+
+
+//// Handmade Hero day 123
+//#if 0
+//struct work_queue_entry
+//{
+//	char* StringToPrint;
+//};
+//
+//static u32 NextEntryToDo;
+//static u32 EntryCount;
+//static work_queue_entry Entries[256];
+//
+//struct win32_thread_info
+//{
+//	i32 logicalthreadindex;
+//
+//};
+//
+//DWORD WINAPI
+//ThreadProc(LPVOID lpParameter)
+//{
+//	win32_thread_info* ThreadInfo = (win32_thread_info*)lpParameter;
+//
+//	for (;;)
+//	{
+//		if (NextEntryToDo < EntryCount)
+//		{
+//			// TODO: This line is not interlocked, so two threads could see the same value
+//			// TODO: Compiler doesn't know that multiple threads could write this value ( volatile )
+//			i32 EntryIndex = NextEntryToDo++;
+//
+//			// TODO: These reads are not in order same problems as the writes
+//			work_queue_entry* Entry = Entries + EntryIndex;
+//
+//			char Buffer[256];
+//
+//			wsprintf(Buffer, "Thread %u: %s\n", ThreadInfo->logicalthreadindex, Entry->StringToPrint);
+//
+//			OutputDebugStringA(Entry->StringToPrint); // This has internal sync
+//		}
+//
+//
+//		//Sleep(1000);
+//	}
+//
+//}
+//
+//static void PushString(char* String)
+//{
+//	// TODO: These writes are not in order
+//	// E.g when entrycount is incremented, another thread might see it
+//	// and use it in the MakeSomeThreads() loop
+//	// If that is the case, had better make sure StringToPrint is already filled out,
+//	// otherwise it is going to go and get garbage
+//	work_queue_entry* Entry = Entries + EntryCount++;
+//	Entry->StringToPrint = String;
+//}
+//
+//#define NUM_THREADS 4
+//
+//void MakeSomeThreads()
+//{
+//	win32_thread_info ThreadInfo[NUM_THREADS] = {};
+//	for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS; ThreadIndex++)
+//	{
+//		win32_thread_info* Info = ThreadInfo + ThreadIndex;
+//		Info->logicalthreadindex = ThreadIndex;
+//
+//		DWORD ThreadID;
+//		HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, &Info, 0, &ThreadID);
+//	}
+//
+//	PushString("String 0");
+//	PushString("String 1");
+//	PushString("String 2");
+//	PushString("String 3");
+//	PushString("String 4");
+//	PushString("String 5");
+//	PushString("String 6");
+//	PushString("String 7");
+//	PushString("String 8");
+//	PushString("String 9");
+//}
+//#endif
+//
+//// Handmade Hero day 124
+//#if 0
+//struct work_queue_entry
+//{
+//	char* StringToPrint;
+//};
+//
+//static u32 volatile NextEntryToDo;
+//static u32 volatile EntryCount;
+//
+//static u32 volatile EntryCompletionCount;
+//
+//static work_queue_entry Entries[256];
+//
+//struct win32_thread_info
+//{
+//	HANDLE SemaphoreHandle;
+//	i32 logicalthreadindex;
+//
+//};
+//
+//DWORD WINAPI
+//ThreadProc(LPVOID lpParameter)
+//{
+//	win32_thread_info* ThreadInfo = (win32_thread_info*)lpParameter;
+//
+//	for (;;)
+//	{
+//		// NextEntryToDo may not be reloaded each time
+//		// should be volatile to make sure it is always reloaded
+//		if (NextEntryToDo < EntryCount)
+//		{
+//			// TODO: This line is not interlocked, so two threads could see the same value
+//			// TODO: Compiler doesn't know that multiple threads could write this value ( volatile )
+//			// Fix: use interlockedadd (interlockedcompareexchange)
+//			// InterlockedIncrement actually functions as a sync fence
+//			i32 EntryIndex = InterlockedIncrement((LONG volatile*) &NextEntryToDo)-1;
+//
+//			// TODO: These reads are not in order same problems as the writes
+//			// Fix: make sure past reads are completed before performing this
+//			CompletePastReadsBeforeFutureReads; // Probably redundant because of interlockedincrement
+//			work_queue_entry* Entry = Entries + EntryIndex;
+//
+//			char Buffer[256];
+//
+//			wsprintf(Buffer, "Thread %u: %s\n", ThreadInfo->logicalthreadindex, Entry->StringToPrint);
+//
+//			OutputDebugStringA(Buffer); // This has internal sync
+//
+//			InterlockedIncrement((LONG volatile*)&EntryCompletionCount);
+//		}
+//		else
+//		{
+//			// TODO: how to wait here (we are done doing work, please suspend)
+//			WaitForSingleObjectEx(ThreadInfo->SemaphoreHandle, INFINITE, FALSE);
+//		}
+//	}
+//
+//}
+//
+//
+//
+//static void PushString(HANDLE SemaphoreHandle, char* String)
+//{
+//	// TODO: These writes are not in order
+//	// (Compiler issue)
+//	// E.g when entrycount is incremented, another thread might see it
+//	// and use it in the MakeSomeThreads() loop
+//	// If that is the case, had better make sure StringToPrint is already filled out,
+//	// otherwise it is going to go and get garbage
+//
+//	// Fix: Make sure to write to StringToPrint before incrementing EntryCount
+//	// Must also ensure that the optimizing compiler  does not rearrange the increment etc
+//	work_queue_entry* Entry = Entries + EntryCount;
+//	Entry->StringToPrint = String;
+//
+//	CompletePastWritesBeforeFutureWrites; //(WriteBarrier)
+//
+//	EntryCount++;
+//
+//	// TODO: Some way to wake up our threads
+//	// Need to be careful here, if notify happens before wait, we could end up
+//	// not notifying anything that wasn't already running, and then risking waiting for ever later
+//	// Fix: use semaphore
+//	// TODO: Caveat here - all threads about to sleep, etc
+//	/*_In_	 */   LONG lReleaseCount = 1;
+//	/*_Out_opt_*/ LONG lpPreviousCount;
+//	ReleaseSemaphore(SemaphoreHandle, lReleaseCount, &lpPreviousCount);
+//}
+//
+//#define NUM_THREADS 4
+//
+//void MakeSomeThreads()
+//{
+//
+//	/*_In_opt_   */ LPSECURITY_ATTRIBUTES lpSemaphoreAttributes = 0;
+//	/*_In_       */ LONG lInitialCount = 0;
+//	/*_In_       */ LONG lMaximumCount = NUM_THREADS;
+//	/*_In_opt_   */ LPCSTR lpName = 0;
+//	/*_Reserved_ */ DWORD dwFlags = 0;
+//	/*_In_       */ DWORD dwDesiredAccess = SEMAPHORE_ALL_ACCESS;
+//	HANDLE SemaphoreHandle = CreateSemaphoreExA(
+//		lpSemaphoreAttributes,
+//		lInitialCount,
+//		lMaximumCount,
+//		lpName,
+//		dwFlags,
+//		dwDesiredAccess
+//	);
+//
+//	win32_thread_info ThreadInfo[NUM_THREADS] = {};
+//	for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS; ThreadIndex++)
+//	{
+//		win32_thread_info* Info = ThreadInfo + ThreadIndex;
+//		Info->SemaphoreHandle = SemaphoreHandle;
+//		Info->logicalthreadindex = ThreadIndex;
+//
+//		DWORD ThreadID;
+//		HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
+//	}
+//
+//	PushString(SemaphoreHandle, "String A0");
+//	PushString(SemaphoreHandle, "String A1");
+//	PushString(SemaphoreHandle, "String A2");
+//	PushString(SemaphoreHandle, "String A3");
+//	PushString(SemaphoreHandle, "String A4");
+//	PushString(SemaphoreHandle, "String A5");
+//	PushString(SemaphoreHandle, "String A6");
+//	PushString(SemaphoreHandle, "String A7");
+//	PushString(SemaphoreHandle, "String A8");
+//	PushString(SemaphoreHandle, "String A9");
+//
+//	//Sleep(5000);
+//
+//	PushString(SemaphoreHandle, "String B0");
+//	PushString(SemaphoreHandle, "String B1");
+//	PushString(SemaphoreHandle, "String B2");
+//	PushString(SemaphoreHandle, "String B3");
+//	PushString(SemaphoreHandle, "String B4");
+//	PushString(SemaphoreHandle, "String B5");
+//	PushString(SemaphoreHandle, "String B6");
+//	PushString(SemaphoreHandle, "String B7");
+//	PushString(SemaphoreHandle, "String B8");
+//	PushString(SemaphoreHandle, "String B9");
+//
+//	// TODO: replace with wait
+//	// TODO turn this into something waitable
+//	while (EntryCount != EntryCompletionCount); // spinlock
+//
+//}
+//#endif
+
+//// Handmade Hero day 125
+//#if 1
+//
+//
+//
+//
+//struct work_queue_entry
+//{
+//	bool IsValid;
+//	void* Data;
+//};
+//static work_queue_entry CompleteAndGetNextWorkQueueEntry(work_queue* Queue, work_queue_entry Completed)
+//{
+//
+//	if (Completed.IsValid)
+//	{
+//		InterlockedIncrement((LONG volatile*)&Queue->EntryCompletionCount);
+//	}
+//
+//	work_queue_entry Entry;
+//	Entry.IsValid = Queue->NextEntryToDo < Queue->EntryCount;
+//	if (Entry.IsValid)
+//	{
+//		u32 Index = InterlockedIncrement((LONG volatile*)&Queue->NextEntryToDo) - 1;
+//		Entry.Data = Queue->Entries[Index].UserPointer;
+//		_ReadBarrier();    _mm_lfence();
+//	}
+//
+//	return Entry;
+//}
+//
+////static void MarkQueueEntryCompleted(work_queue* Queue, work_queue_entry Item)
+////{
+//////	InterlockedIncrement((LONG volatile*)&Queue->NextEntryToDo) - 1;
+////	//InterlockedIncrement((LONG volatile*)&EntryCompletionCount);
+////}
+//
+//static bool QueueWorkStillInProgress(work_queue* Queue)
+//{
+//	return Queue->EntryCount != Queue->EntryCompletionCount;// { DoWorkerWork(NUM_THREADS); }
+//}
+//
+//#include <assert.h>
+//inline void DoWorkerWork(work_queue_entry Entry, i32 LogicalThreadIndex)
+//{
+//	assert(Entry.IsValid);
+//
+//	char Buffer[256];
+//	wsprintf(Buffer, "Thread %u: %s\n", LogicalThreadIndex, (char*)Entry.Data);	
+//	OutputDebugStringA(Buffer); // This has internal sync
+//}
+//
+//struct win32_thread_info
+//{
+//	HANDLE SemaphoreHandle;
+//	work_queue *Queue;
+//	i32 logicalthreadindex;
+//};
+//DWORD WINAPI
+//ThreadProc(LPVOID lpParameter)
+//{
+//	win32_thread_info* ThreadInfo = (win32_thread_info*)lpParameter;
+//
+//	work_queue_entry Entry{};
+//	for (;;)
+//	{
+//		// NextEntryToDo may not be reloaded each time
+//		// should be volatile to make sure it is always reloaded
+//
+//		Entry = CompleteAndGetNextWorkQueueEntry(ThreadInfo->Queue, Entry);
+//		if (Entry.IsValid)
+//		{
+//			DoWorkerWork(Entry, ThreadInfo->logicalthreadindex);
+//		}
+//		else
+//		{
+//		/*{
+//
+//		}
+//		if (!DoWorkerWork(ThreadInfo->Queue, ThreadInfo->logicalthreadindex))
+//		{*/
+//			// TODO: how to wait here (we are done doing work, please suspend)
+//			WaitForSingleObjectEx(ThreadInfo->Queue->SemaphoreHandle, INFINITE, FALSE);
+//		}
+//	}
+//}
+//
+//static u32 GetNextAvailableWorkQueueIndex(work_queue *Queue)
+//{
+//	return Queue->EntryCount;
+//}
+//
+//static void AddWorkQueueEntry(work_queue *Queue, void *Pointer) // former PushString
+//{
+//	Queue->Entries[Queue->EntryCount].UserPointer = Pointer;
+//
+//	_WriteBarrier();
+//	_mm_sfence();
+//	Queue->EntryCount++;
+//	LONG lReleaseCount = 1;
+//	LONG lpPreviousCount;
+//	ReleaseSemaphore(Queue->SemaphoreHandle, lReleaseCount, &lpPreviousCount);
+//}
+//
+//static void PushString(work_queue* Queue, char* String)
+//{
+//	AddWorkQueueEntry(Queue, String);
+//}
+//
+//
+//#define NUM_THREADS 4
+//void MakeSomeThreads()
+//{
+//	work_queue Queue{};
+//	/*_In_opt_   */ LPSECURITY_ATTRIBUTES lpSemaphoreAttributes = 0;
+//	/*_In_       */ LONG lInitialCount = 0;
+//	/*_In_       */ LONG lMaximumCount = NUM_THREADS;
+//	/*_In_opt_   */ LPCSTR lpName = 0;
+//	/*_Reserved_ */ DWORD dwFlags = 0;
+//	/*_In_       */ DWORD dwDesiredAccess = SEMAPHORE_ALL_ACCESS;
+//	Queue.SemaphoreHandle = CreateSemaphoreExA(
+//		lpSemaphoreAttributes,
+//		lInitialCount,
+//		lMaximumCount,
+//		lpName,
+//		dwFlags,
+//		dwDesiredAccess
+//	);
+//
+//	win32_thread_info ThreadInfo[NUM_THREADS] = {};
+//	for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS; ThreadIndex++)
+//	{
+//		win32_thread_info* Info = ThreadInfo + ThreadIndex;
+//		Info->logicalthreadindex = ThreadIndex;
+//		Info->Queue = &Queue;
+//		DWORD ThreadID;
+//		HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
+//	}
+//
+//	PushString(&Queue, "String A0");
+//	PushString(&Queue, "String A1");
+//	PushString(&Queue, "String A2");
+//	PushString(&Queue, "String A3");
+//	PushString(&Queue, "String A4");
+//	PushString(&Queue, "String A5");
+//	PushString(&Queue, "String A6");
+//	PushString(&Queue, "String A7");
+//	PushString(&Queue, "String A8");
+//	PushString(&Queue, "String A9");
+//	PushString(&Queue, "String B0");
+//	PushString(&Queue, "String B1");
+//	PushString(&Queue, "String B2");
+//	PushString(&Queue, "String B3");
+//	PushString(&Queue, "String B4");
+//	PushString(&Queue, "String B5");
+//	PushString(&Queue, "String B6");
+//	PushString(&Queue, "String B7");
+//	PushString(&Queue, "String B8");
+//	PushString(&Queue, "String B9");
+//
+//	work_queue_entry Entry = {};
+//	while (QueueWorkStillInProgress(&Queue));
+//	{
+//		Entry = CompleteAndGetNextWorkQueueEntry(&Queue, Entry);
+//		if (Entry.IsValid)
+//		{
+//			DoWorkerWork(Entry, NUM_THREADS);
+//		}
+//	}
+//
+//}
+//#endif
+
+// Handmade Hero day 126
+#if 1
+
+//#define NUM_THREADS 4
+//
+//static bool DoNextWorkQueueEntry(work_queue* Queue)
+//{
+//
+//	u32 OriginalNextEntryToRead = Queue->NextEntryToRead;
+//
+//	u32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % Queue->MaxEntryCount;
+//	bool IsValid = OriginalNextEntryToRead != Queue->NextEntryToWrite;
+//	bool bShouldWait = !IsValid;
+//	if (IsValid)
+//	{
+//		u32 Index = InterlockedCompareExchange((LONG volatile*)&Queue->NextEntryToRead,
+//			NewNextEntryToRead,
+//			OriginalNextEntryToRead);
+//
+//		// If this holds, we are ok, else some other thread has beaten us to getting the work
+//		if (Index == OriginalNextEntryToRead)
+//		{
+//			work_queue_entry Entry = Queue->Entries[Index];
+//			Entry.Callback(Queue, Entry.Data);
+//			// interlocked increment does the correct fence //_ReadWriteBarrier();    _mm_mfence();
+//			InterlockedIncrement((LONG volatile*)&Queue->EntryCompletionCount);
+//		}
+//	}
+//
+//	return bShouldWait;
+//}
+//
+//
+//// TODO make this return a bool if it fails and queue is full
+//void AddWorkQueueEntry(work_queue* Queue, work_queue_callback* Callback, void* Data)
+//{
+//	//TODO: for multiple producers add interlocked compare exchange to entrycount
+//	// TODO: Switch to interlockedcompare exchange eventually so that any thread can add?
+//	u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % Queue->MaxEntryCount;
+//	assert(NewNextEntryToWrite != Queue->NextEntryToRead);
+//	work_queue_entry* Entry = Queue->Entries + Queue->NextEntryToWrite;
+//	Entry->Data = Data;
+//	Entry->Callback = Callback;
+//	Queue->CompletionGoal++;
+//	_WriteBarrier(); // Redundant if using sfence, VS will treat mm_sfence as a writebarrier
+//	// _mm_sfence();    // Unneccesary for x64
+//	Queue->NextEntryToWrite = NewNextEntryToWrite;
+//	LONG lReleaseCount = 1;
+//	LONG lpPreviousCount;
+//	ReleaseSemaphore(Queue->SemaphoreHandle, lReleaseCount, &lpPreviousCount);
+//}
+//
+//static bool QueueWorkStillInProgress(work_queue* Queue)
+//{
+//	return Queue->CompletionGoal != Queue->EntryCompletionCount;// { DoWorkerWork(NUM_THREADS); }
+//}
+//void CompleteAllWork(work_queue* Queue)
+//{
+//	while (QueueWorkStillInProgress(Queue));
+//	{
+//		DoNextWorkQueueEntry(Queue);
+//	}
+//	Queue->EntryCompletionCount = 0;
+//	Queue->CompletionGoal = 0;
+//}
+//
+//struct win32_thread_info
+//{
+//	work_queue* Queue;
+//	i32 logicalthreadindex;
+//};
+//DWORD WINAPI
+//ThreadProc(LPVOID lpParameter)
+//{
+//	win32_thread_info* ThreadInfo = (win32_thread_info*)lpParameter;
+//	for (;;)
+//	{
+//		if(DoNextWorkQueueEntry(ThreadInfo->Queue))
+//		{
+//			WaitForSingleObjectEx(ThreadInfo->Queue->SemaphoreHandle, INFINITE, FALSE);
+//		}
+//	}
+//}
+//
+//work_queue MakeWorkQueue()
+//{
+//	work_queue Queue{};
+//	LPSECURITY_ATTRIBUTES SemaphoreAttributes = 0;
+//	LONG InitialCount = 0;
+//	LONG MaximumCount = NUM_THREADS;
+//	LPCSTR Name = 0;
+//	DWORD Flags = 0;
+//	DWORD DesiredAccess = SEMAPHORE_ALL_ACCESS;
+//	Queue.SemaphoreHandle = CreateSemaphoreExA(
+//		SemaphoreAttributes,
+//		InitialCount,
+//		MaximumCount,
+//		Name,
+//		Flags,
+//		DesiredAccess
+//	);
+//
+//	win32_thread_info ThreadInfo[NUM_THREADS] = {};
+//	for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS; ThreadIndex++)
+//	{
+//		win32_thread_info* Info = ThreadInfo + ThreadIndex;
+//		Info->logicalthreadindex = ThreadIndex;
+//		Info->Queue = &Queue;
+//		DWORD ThreadID;
+//		HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
+//	}
+//
+//	return Queue;
+//}
+
+// Test code
+
+static WORK_QUEUE_CALLBACK(DoWorkerWork) // test callback function
+{
+	char Buffer[256];
+	wsprintf(Buffer, "Thread %u: %s\n", GetCurrentThreadId(), (char*)Data);
+	OutputDebugStringA(Buffer); // This has internal sync
+}
+
+void MakeSomeThreads()
+{
+	work_queue* Queue = MakeWorkQueue();
+
+	for(i32 i = 0; i < 4; i++)
+	{
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A0");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A1");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A2");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A3");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A4");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A5");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A6");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A7");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A8");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String A9");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B0");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B1");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B2");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B3");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B4");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B5");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B6");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B7");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B8");
+		AddWorkQueueEntry(Queue, DoWorkerWork, "String B9");
+
+		CompleteAllWork(Queue);
+		OutputDebugStringA("-------------------------------------------\n");
+	}
+
+}
+#endif
+
+/*
+
+Example use:
+
+struct tile_render_work
+{
+	render_group * RenderGroup;
+	loaded_bitmap *OutputTarget;
+	rectangle2i ClipRect;
+}
+
+static WORK_QUEUE_CALLBACK(DoTiledRenderWork)
+{
+	tile_render_work * Work = (tiel_render_work *) Data;
+
+	RenderGroupToOutput(...,...,...,..);
+}
+
+
+TiledRenderGroupToOutput(work_queue *RenderQueue)
+{
+	tile_render_work WorkArray[TileCountX * TileCountY];
+
+	i32 workindex = 0;
+	for tileY
+		for tileX
+			tile_render_work *Work = WorkArray + WorkIndex++;
+
+			{
+				fill work struct
+			}
+			//AddWorkQueueEntry(RenderQueue, DoTiledRenderWork, &Work);
+			// could do RenderQueueue->AddEntry(RenderQueue, DoTiledRenderWork, &Work); for platform abstraction
+			CompleteAllWork(RenderQueue);
+
+	// RenderQeuue->CompleteAllWork(RenderQueue); for platforma abstraction
+	CompleteAllWork(RenderQueue);
+}
+
+
+*/
 
 
 // https://docs.microsoft.com/en-us/windows/win32/sync/what-s-new-in-synchronization
