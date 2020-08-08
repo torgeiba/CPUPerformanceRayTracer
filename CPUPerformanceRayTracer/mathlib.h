@@ -497,13 +497,17 @@ template<typename T> inline T rflc(T u, T v) { return sub(mul(2., proj(u, v)), u
 inline f32x3 cross(f32x3 u, f32x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
 inline m256x3 cross(m256x3 u, m256x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
 
-template<typename T>
-inline T rfrct(T v /*unit len*/, T n /*unit len*/, float ior)
+inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 {
-	f32 vdotn = dot(n, v);
-	f32 k = 1.f - ior * ior * (1.F - vdotn * vdotn);
-	if (k < 0.0) return{ 0.f };
-	return sub(mul(ior, v), mul((ior * vdotn + sqrt(k)), n));
+	__m256 vdotn = dot(n, v);
+	__m256 k = 1.f - ior * ior * (1.f - vdotn * vdotn);
+	//if (k < 0.0) return{ 0.f };
+	m256x3 Result = sub(mul(ior, v), mul((ior * vdotn + sroot(k)), n));
+	__m256 RetZeroCond = (k < set1_ps(0.f));
+	Result.x &= RetZeroCond;
+	Result.y &= RetZeroCond;
+	Result.z &= RetZeroCond;
+	return Result;
 }
 
 

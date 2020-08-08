@@ -172,7 +172,7 @@ SMaterialInfo GetZeroedMaterial()
     return ret;
 }
 
-SMaterialInfo ConditionalWritedMaterial(SMaterialInfo OldMaterial, SMaterialInfo NewMaterial, __m256 cond)
+SMaterialInfo ConditionalWriteMaterial(SMaterialInfo OldMaterial, SMaterialInfo NewMaterial, __m256 cond)
 {
     SMaterialInfo ret = OldMaterial;
     ret.albedo              = blend3_ps(OldMaterial.albedo             , NewMaterial.albedo             , cond);
@@ -315,7 +315,7 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x3 a, 
         __m256 cond = (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
         cond = (!(early_return) && cond);
         {
-            info.fromInside = ConstZero;
+            info.fromInside = blend_ps(info.fromInside, ConstZero, cond);
             info.dist = blend_ps(info.dist, dist, cond);
             info.normal = blend3_ps(info.normal, normal, cond);
             result = blend_ps(result, MaskTrue, cond);
@@ -369,7 +369,7 @@ __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 s
     {
         __m256 distCheck = (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
         __m256 check = (!(early_return) && distCheck);
-        info.fromInside = fromInside;
+        info.fromInside = blend_ps(info.fromInside, fromInside, check);
         info.dist = blend_ps(info.dist, dist, check);
         info.normal = blend3_ps(
             info.normal,
@@ -397,11 +397,10 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
@@ -414,11 +413,10 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
@@ -431,11 +429,10 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.7f, 0.7f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
@@ -448,11 +445,10 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.7f, 0.1f, 0.1f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.albedo = set1x3_ps(0.7f, 0.1f, 0.1f);
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
@@ -465,11 +461,10 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.1f, 0.7f, 0.1f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.albedo = set1x3_ps(0.1f, 0.7f, 0.1f);
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
@@ -482,42 +477,44 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-            hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f)), cond);
-            hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.0f), cond);
-            hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.0f), cond);
-            hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+            NewMaterial.emissive = (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f));
+            NewMaterial.IOR = set1_ps(1.1f);
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.9f, 0.9f, 0.5f), cond);
-        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.9f, 0.9f, 0.9f), cond);
-        hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.1f), cond);
-        hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.2f), cond);
-        hitInfo.material.IOR = blend_ps(hitInfo.material.IOR, set1_ps(1.1), cond);
+        SMaterialInfo NewMaterial = GetZeroedMaterial();
+        NewMaterial.albedo = set1x3_ps(0.9f, 0.9f, 0.5f);
+        NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
+        NewMaterial.specularChance = set1_ps(0.1f);
+        NewMaterial.specularRoughness = set1_ps(0.2f);
+        NewMaterial.IOR = set1_ps(1.1f);
+        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(0.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.9f, 0.5f, 0.9f), cond);
-        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(0.9f, 0.9f, 0.9f), cond);
-        hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.3f), cond);
-        hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.2f), cond);
-        hitInfo.material.IOR = blend_ps(hitInfo.material.IOR, set1_ps(1.1), cond);
+        SMaterialInfo NewMaterial = GetZeroedMaterial();
+        NewMaterial.albedo = set1x3_ps(0.9f, 0.5f, 0.9f);
+        NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
+        NewMaterial.specularChance = set1_ps(0.3f);
+        NewMaterial.specularRoughness = set1_ps(0.2f);
+        NewMaterial.IOR = set1_ps(1.1f);
+        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
     }
 
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        hitInfo.material.albedo = blend3_ps(hitInfo.material.albedo, set1x3_ps(0.f, 0.f, 1.f), cond);
-        hitInfo.material.emissive = blend3_ps(hitInfo.material.emissive, set1x3_ps(0.0f, 0.0f, 0.0f), cond);
-        hitInfo.material.specularColor = blend3_ps(hitInfo.material.specularColor, set1x3_ps(1.f, 0.f, 0.f), cond);
-        hitInfo.material.specularChance = blend_ps(hitInfo.material.specularChance, set1_ps(0.5f), cond);
-        hitInfo.material.specularRoughness = blend_ps(hitInfo.material.specularRoughness, set1_ps(0.4f), cond);
-        hitInfo.material.IOR = blend_ps(hitInfo.material.IOR, set1_ps(1.1), cond);
+        SMaterialInfo NewMaterial = GetZeroedMaterial();
+        NewMaterial.albedo = set1x3_ps(0.f, 0.f, 1.f);
+        NewMaterial.specularColor   = set1x3_ps(1.f, 0.f, 0.f);
+        NewMaterial.specularChance  =set1_ps(0.5f);
+        NewMaterial.specularRoughness = set1_ps(0.4f);
+        NewMaterial.IOR = set1_ps(1.1f);
+        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
     }
 }
 
@@ -535,7 +532,9 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
     {
         // shoot a ray out into the world
         SRayHitInfo hitInfo{ 0.f };
+        hitInfo.material = GetZeroedMaterial();
         hitInfo.dist = set1_ps(c_superFar);
+        hitInfo.fromInside = MaskFalse;
         TestSceneTrace(rayPos, rayDir, hitInfo, shouldBreak);
 
         // if the ray missed, we are done
@@ -553,26 +552,49 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             ret = blend3_ps(ret, ret + ambient, cond);
         }
 
-        // update the ray position
-        rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
+        // if (hitInfo.fromInside)
+        m256x3 newThroughput = throughput;
+        newThroughput.x *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.x * hitInfo.dist), hitInfo.fromInside);
+        newThroughput.y *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.y * hitInfo.dist), hitInfo.fromInside);
+        newThroughput.z *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.z * hitInfo.dist), hitInfo.fromInside);
+
+        //// update the ray position
+        //__m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefraction);
+        //rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + doRefractionSign * (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
 
         // apply fresnel
         __m256 specularChance = hitInfo.material.specularChance;
+        __m256 refractionChance = hitInfo.material.refractionChance;
 
         {
             __m256 hasSpecularChance = specularChance > ConstZero;
+            __m256 n1  = blend_ps(ConstOne, hitInfo.material.IOR, hitInfo.fromInside);
+            __m256 n2  = blend_ps(hitInfo.material.IOR, ConstOne, hitInfo.fromInside);
+            __m256 f0  = hitInfo.material.specularChance;
+            __m256 f90 = ConstOne;
+            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, hitInfo.normal, rayDir, f0, f90);
 
-            specularChance = FresnelReflectAmount(ConstOne, hitInfo.material.IOR,
-                rayDir, hitInfo.normal, hitInfo.material.specularChance, ConstOne);
-
-            specularChance = specularChance & hasSpecularChance;
+            __m256 chanceMultiplier = (1.f - newSpecularChance) / (1.f - hitInfo.material.specularChance);
+            specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
+            refractionChance = blend_ps(refractionChance, refractionChance * chanceMultiplier, hasSpecularChance);
         }
 
-        __m256 doSpecular = ConstOne & (Randomf3201_ps(rngState) < specularChance);
+        __m256 raySelectRoll = Randomf3201_ps(rngState);
+        __m256 doSpecularMask = (raySelectRoll < specularChance) & (specularChance > ConstZero);
+        __m256 doSpecular = ConstOne & doSpecularMask;
+        __m256 doRefractionMask = !doSpecularMask & (refractionChance > ConstZero) & (raySelectRoll < (specularChance + refractionChance));
+        __m256 doRefraction = ConstOne & doRefractionMask;
 
-        __m256 rayProbability = blend_ps(ConstOne - specularChance, specularChance, (doSpecular == ConstOne));
-
+        __m256 rayProbability = 1.0f - (specularChance + refractionChance);
+        rayProbability = blend_ps(rayProbability, refractionChance, doRefractionMask);
+        rayProbability = blend_ps(rayProbability, specularChance, doSpecularMask);
+        //__m256 rayProbability = blend_ps(ConstOne - specularChance, specularChance, (doSpecular == ConstOne));
         rayProbability = max_ps(rayProbability, set1_ps(0.001f));
+
+        // update the ray position
+        __m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefractionMask);
+        rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + doRefractionSign * (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
+
 
         // calculate new ray direction, in a cosine weighted hemisphere oriented at normal
         {
@@ -586,18 +608,27 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             __m256 roughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
             specularRayDir = normalize(lerp(specularRayDir, diffuseRayDir, roughnessSqrd));
 
+            m256x3 refractionRayDir = rfrct(rayDir, hitInfo.normal, blend_ps(ConstOne / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside));
+//            refractionRayDir = normalize(mix(refractionRayDir, normalize(-hitInfo.normal + RandomUnitVector(rngState)), hitInfo.material.refractionRoughness * hitInfo.material.refractionRoughness));
+
+            __m256 refracRoughnessSqrd = hitInfo.material.refractionRoughness* hitInfo.material.refractionRoughness;
+            refractionRayDir = normalize(lerp(refractionRayDir, normalize(RandomUnitVector_ps(rngState) - hitInfo.normal), refracRoughnessSqrd));
+
             m256x3 newRayDir = lerp(diffuseRayDir, specularRayDir, doSpecular);
+            newRayDir        = lerp(rayDir     , refractionRayDir, doRefraction);
 
             rayDir = blend3_ps(newRayDir, rayDir, shouldBreak);
         }
 
         // add in emissive lighting
-        ret = blend3_ps((ret + hitInfo.material.emissive * throughput), ret, shouldBreak);
+        ret = blend3_ps((ret + hitInfo.material.emissive * newThroughput), ret, shouldBreak);
 
         // update the colorMultiplier
         //throughput = shouldBreak ? throughput :
         //    (throughput * hitInfo.albedo);
-        m256x3 newThroughput = throughput * lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular);
+        //newThroughput = throughput * lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular);
+        newThroughput = blend3_ps(newThroughput * lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular), newThroughput, doRefractionMask);
+
         newThroughput = newThroughput / rayProbability;
         throughput = blend3_ps(newThroughput, throughput, shouldBreak);
 
