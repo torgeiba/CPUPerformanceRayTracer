@@ -388,133 +388,170 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
     m256x3 sceneTranslation = set1x3_ps(0.0f, 0.0f, 10.0f);
     m256x4 sceneTranslation4 = m256x4{ sceneTranslation.x, sceneTranslation.y, sceneTranslation.z, ConstZero };
 
-    // back wall
+    //// back wall
+    //{
+    //    m256x3 A = set1x3_ps(-12.6f, -12.6f, 25.0f) + sceneTranslation;
+    //    m256x3 B = set1x3_ps(12.6f, -12.6f, 25.0f) + sceneTranslation;
+    //    m256x3 C = set1x3_ps(12.6f, 12.6f, 25.0f) + sceneTranslation;
+    //    m256x3 D = set1x3_ps(-12.6f, 12.6f, 25.0f) + sceneTranslation;
+
+    //    __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
+    //    {
+    //        SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //        NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
+    //        NewMaterial.IOR = set1_ps(1.1f);
+    //        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //    }
+    //}
+
+    // floor
     {
-        m256x3 A = set1x3_ps(-12.6f, -12.6f, 25.0f) + sceneTranslation;
-        m256x3 B = set1x3_ps(12.6f, -12.6f, 25.0f) + sceneTranslation;
-        m256x3 C = set1x3_ps(12.6f, 12.6f, 25.0f) + sceneTranslation;
-        m256x3 D = set1x3_ps(-12.6f, 12.6f, 25.0f) + sceneTranslation;
+        m256x3 A = set1x3_ps(-25.0f, -12.5f, 5.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps( 25.0f, -12.5f, 5.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps( 25.0f, -12.5f, -5.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-25.0f, -12.5f, -5.0f) + sceneTranslation;
 
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
         {
             SMaterialInfo NewMaterial = GetZeroedMaterial();
             NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
-            NewMaterial.IOR = set1_ps(1.1f);
             hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
-    // floor
+    // striped background
     {
-        m256x3 A = set1x3_ps(-12.6f, -12.45f, 25.0f) + sceneTranslation;
-        m256x3 B = set1x3_ps(12.6f, -12.45f, 25.0f) + sceneTranslation;
-        m256x3 C = set1x3_ps(12.6f, -12.45f, 15.0f) + sceneTranslation;
-        m256x3 D = set1x3_ps(-12.6f, -12.45f, 15.0f) + sceneTranslation;
-
-        __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
+        m256x3 A = set1x3_ps(-25.0f, -1.5f, 5.0f);
+        m256x3 B = set1x3_ps(25.0f, -1.5f, 5.0f);
+        m256x3 C = set1x3_ps(25.0f, -10.5f, 5.0f);
+        m256x3 D = set1x3_ps(-25.0f, -10.5f, 5.0f);
         {
+            __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
             SMaterialInfo NewMaterial = GetZeroedMaterial();
-            NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
-            NewMaterial.IOR = set1_ps(1.1f);
+            m256x3 hitPos = rayPos + rayDir * hitInfo.dist;
+            __m256 shade = round_floor(fract(hitPos.x) * 2.0f);
+            NewMaterial.albedo = m256x3{ shade, shade, shade };
             hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
     // cieling
     {
-        m256x3 A = set1x3_ps(-12.6f, 12.5f, 25.0f) + sceneTranslation;
-        m256x3 B = set1x3_ps(12.6f, 12.5f, 25.0f) + sceneTranslation;
-        m256x3 C = set1x3_ps(12.6f, 12.5f, 15.0f) + sceneTranslation;
-        m256x3 D = set1x3_ps(-12.6f, 12.5f, 15.0f) + sceneTranslation;
+        m256x3 A = set1x3_ps(-7.5f, 12.5f, 5.0f) + sceneTranslation;
+        m256x3 B = set1x3_ps( 7.5f, 12.5f, 5.0f) + sceneTranslation;
+        m256x3 C = set1x3_ps( 7.5f, 12.5f, -5.0f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-7.5f, 12.5f, -5.0f) + sceneTranslation;
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
             SMaterialInfo NewMaterial = GetZeroedMaterial();
             NewMaterial.albedo = set1x3_ps(0.7f, 0.7f, 0.7f);
-            NewMaterial.IOR = set1_ps(1.1f);
             hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
-    // left wall
-    {
-        m256x3 A = set1x3_ps(-12.5f, -12.6f, 25.0f) + sceneTranslation;
-        m256x3 B = set1x3_ps(-12.5f, -12.6f, 15.0f) + sceneTranslation;
-        m256x3 C = set1x3_ps(-12.5f, 12.6f, 15.0f) + sceneTranslation;
-        m256x3 D = set1x3_ps(-12.5f, 12.6f, 25.0f) + sceneTranslation;
+    //// left wall
+    //{
+    //    m256x3 A = set1x3_ps(-12.5f, -12.6f, 25.0f) + sceneTranslation;
+    //    m256x3 B = set1x3_ps(-12.5f, -12.6f, 15.0f) + sceneTranslation;
+    //    m256x3 C = set1x3_ps(-12.5f, 12.6f, 15.0f) + sceneTranslation;
+    //    m256x3 D = set1x3_ps(-12.5f, 12.6f, 25.0f) + sceneTranslation;
 
-        {
-            __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            SMaterialInfo NewMaterial = GetZeroedMaterial();
-            NewMaterial.albedo = set1x3_ps(0.7f, 0.1f, 0.1f);
-            NewMaterial.IOR = set1_ps(1.1f);
-            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
-        }
-    }
+    //    {
+    //        __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
+    //        SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //        NewMaterial.albedo = set1x3_ps(0.7f, 0.1f, 0.1f);
+    //        NewMaterial.IOR = set1_ps(1.1f);
+    //        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //    }
+    //}
 
-    // right wall 
-    {
-        m256x3 A = set1x3_ps(12.5f, -12.6f, 25.0f) + sceneTranslation;
-        m256x3 B = set1x3_ps(12.5f, -12.6f, 15.0f) + sceneTranslation;
-        m256x3 C = set1x3_ps(12.5f, 12.6f, 15.0f) + sceneTranslation;
-        m256x3 D = set1x3_ps(12.5f, 12.6f, 25.0f) + sceneTranslation;
+    //// right wall 
+    //{
+    //    m256x3 A = set1x3_ps(12.5f, -12.6f, 25.0f) + sceneTranslation;
+    //    m256x3 B = set1x3_ps(12.5f, -12.6f, 15.0f) + sceneTranslation;
+    //    m256x3 C = set1x3_ps(12.5f, 12.6f, 15.0f) + sceneTranslation;
+    //    m256x3 D = set1x3_ps(12.5f, 12.6f, 25.0f) + sceneTranslation;
 
-        {
-            __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
-            SMaterialInfo NewMaterial = GetZeroedMaterial();
-            NewMaterial.albedo = set1x3_ps(0.1f, 0.7f, 0.1f);
-            NewMaterial.IOR = set1_ps(1.1f);
-            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
-        }
-    }
+    //    {
+    //        __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
+    //        SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //        NewMaterial.albedo = set1x3_ps(0.1f, 0.7f, 0.1f);
+    //        NewMaterial.IOR = set1_ps(1.1f);
+    //        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //    }
+    //}
 
     // light
     {
-        m256x3 A = set1x3_ps(-5.0f, 12.4f, 22.5f) + sceneTranslation;
-        m256x3 B = set1x3_ps(5.0f, 12.4f, 22.5f) + sceneTranslation;
-        m256x3 C = set1x3_ps(5.0f, 12.4f, 17.5f) + sceneTranslation;
-        m256x3 D = set1x3_ps(-5.0f, 12.4f, 17.5f) + sceneTranslation;
+        m256x3 A = set1x3_ps(-5.0f, 12.4f, 2.5f) + sceneTranslation;
+        m256x3 B = set1x3_ps( 5.0f, 12.4f, 2.5f) + sceneTranslation;
+        m256x3 C = set1x3_ps( 5.0f, 12.4f, -2.5f) + sceneTranslation;
+        m256x3 D = set1x3_ps(-5.0f, 12.4f, -2.5f) + sceneTranslation;
 
         {
             __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, A, B, C, D)));
             SMaterialInfo NewMaterial = GetZeroedMaterial();
             NewMaterial.emissive = (set1x3_ps(1.0f, 0.9f, 0.7f) * set1_ps(20.0f));
-            NewMaterial.IOR = set1_ps(1.1f);
             hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
         }
     }
 
-    {
-        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        SMaterialInfo NewMaterial = GetZeroedMaterial();
-        NewMaterial.albedo = set1x3_ps(0.9f, 0.9f, 0.5f);
-        NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
-        NewMaterial.specularChance = set1_ps(0.1f);
-        NewMaterial.specularRoughness = set1_ps(0.2f);
-        NewMaterial.IOR = set1_ps(1.1f);
-        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
-    }
+    //{
+    //    __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+    //    SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //    NewMaterial.albedo = set1x3_ps(0.9f, 0.9f, 0.5f);
+    //    NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
+    //    NewMaterial.specularChance = set1_ps(0.1f);
+    //    NewMaterial.specularRoughness = set1_ps(0.2f);
+    //    NewMaterial.IOR = set1_ps(1.1f);
+    //    hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //}
 
-    {
-        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(0.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        SMaterialInfo NewMaterial = GetZeroedMaterial();
-        NewMaterial.albedo = set1x3_ps(0.9f, 0.5f, 0.9f);
-        NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
-        NewMaterial.specularChance = set1_ps(0.3f);
-        NewMaterial.specularRoughness = set1_ps(0.2f);
-        NewMaterial.IOR = set1_ps(1.1f);
-        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
-    }
+    //{
+    //    __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(0.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+    //    SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //    NewMaterial.albedo = set1x3_ps(0.9f, 0.5f, 0.9f);
+    //    NewMaterial.specularColor = set1x3_ps(0.9f, 0.9f, 0.9f);
+    //    NewMaterial.specularChance = set1_ps(0.3f);
+    //    NewMaterial.specularRoughness = set1_ps(0.2f);
+    //    NewMaterial.IOR = set1_ps(1.1f);
+    //    hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //}
 
+    //{
+    //    __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
+    //    SMaterialInfo NewMaterial = GetZeroedMaterial();
+    //    NewMaterial.albedo = set1x3_ps(0.f, 0.f, 1.f);
+    //    NewMaterial.specularColor   = set1x3_ps(1.f, 0.f, 0.f);
+    //    NewMaterial.specularChance  =set1_ps(0.5f);
+    //    NewMaterial.specularRoughness = set1_ps(0.4f);
+    //    NewMaterial.IOR = set1_ps(1.1f);
+    //    hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+    //}
+
+    const i32 c_numSpheres = 7;
+    for (i32 sphereIndex = 0; sphereIndex < c_numSpheres; sphereIndex += 1)
     {
-        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(9.0f, -9.5f, 20.0f, 3.0f) + sceneTranslation4)));
-        SMaterialInfo NewMaterial = GetZeroedMaterial();
-        NewMaterial.albedo = set1x3_ps(0.f, 0.f, 1.f);
-        NewMaterial.specularColor   = set1x3_ps(1.f, 0.f, 0.f);
-        NewMaterial.specularChance  =set1_ps(0.5f);
-        NewMaterial.specularRoughness = set1_ps(0.4f);
-        NewMaterial.IOR = set1_ps(1.1f);
-        hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+
+        __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, set1x4_ps(-18.0f + 6.0f * (f32)(sphereIndex), -8.0f, 0.0f, 2.8f) + sceneTranslation4)));
+        {
+            SMaterialInfo NewMaterial = GetZeroedMaterial();
+
+            __m256 r = set1_ps(sphereIndex) / set1_ps(c_numSpheres - 1) * 0.5f;
+
+            NewMaterial.albedo = set1x3_ps(0.9f, 0.25f, 0.25f);
+            NewMaterial.emissive = set1x3_ps(0.0f, 0.0f, 0.0f);
+            NewMaterial.specularChance = set1_ps(0.02f);
+            NewMaterial.specularRoughness = r;
+            NewMaterial.specularColor = set1x3_ps(1.0f, 1.0f, 1.0f) * 0.8f;
+            NewMaterial.IOR = set1_ps(1.1f);
+            NewMaterial.refractionChance = set1_ps(1.0f);
+            NewMaterial.refractionRoughness = r;
+            NewMaterial.refractionColor = set1x3_ps(0.0f, 0.5f, 1.0f);
+
+            hitInfo.material = ConditionalWriteMaterial(hitInfo.material, NewMaterial, cond);
+        }
     }
 }
 
@@ -572,15 +609,19 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             __m256 n2  = blend_ps(hitInfo.material.IOR, ConstOne, hitInfo.fromInside);
             __m256 f0  = hitInfo.material.specularChance;
             __m256 f90 = ConstOne;
-            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, hitInfo.normal, rayDir, f0, f90);
+            //__m256 newSpecularChance = FresnelReflectAmount(n1, n2, hitInfo.normal, rayDir, f0, f90);
+
+            // Is hitInfo.normal and rayDir flipped?
+            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, rayDir, hitInfo.normal, f0, f90);
+
+            specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
 
             __m256 chanceMultiplier = (1.f - newSpecularChance) / (1.f - hitInfo.material.specularChance);
-            specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
             refractionChance = blend_ps(refractionChance, refractionChance * chanceMultiplier, hasSpecularChance);
         }
 
         __m256 raySelectRoll = Randomf3201_ps(rngState);
-        __m256 doSpecularMask = (raySelectRoll < specularChance) & (specularChance > ConstZero);
+        __m256 doSpecularMask = (specularChance > ConstZero) & (specularChance > raySelectRoll);
         __m256 doSpecular = ConstOne & doSpecularMask;
         __m256 doRefractionMask = !doSpecularMask & (refractionChance > ConstZero) & (raySelectRoll < (specularChance + refractionChance));
         __m256 doRefraction = ConstOne & doRefractionMask;
@@ -588,12 +629,12 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         __m256 rayProbability = 1.0f - (specularChance + refractionChance);
         rayProbability = blend_ps(rayProbability, refractionChance, doRefractionMask);
         rayProbability = blend_ps(rayProbability, specularChance, doSpecularMask);
-        //__m256 rayProbability = blend_ps(ConstOne - specularChance, specularChance, (doSpecular == ConstOne));
         rayProbability = max_ps(rayProbability, set1_ps(0.001f));
 
         // update the ray position
         __m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefractionMask);
-        rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + doRefractionSign * (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
+        m256x3 newRayPos = (rayPos + rayDir * hitInfo.dist) + doRefractionSign * hitInfo.normal * c_rayPosNormalNudge;
+        rayPos = blend3_ps(newRayPos, rayPos, shouldBreak);
 
 
         // calculate new ray direction, in a cosine weighted hemisphere oriented at normal
@@ -603,15 +644,12 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             m256x3 diffuseRayDir = normalize(unnormalizedNewRayDir);
 
             // reflect
+            __m256 specularRoughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
             m256x3 specularRayDir = rayDir - 2.f * hitInfo.normal * dot(rayDir, hitInfo.normal);
-
-            __m256 roughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
-            specularRayDir = normalize(lerp(specularRayDir, diffuseRayDir, roughnessSqrd));
-
-            m256x3 refractionRayDir = rfrct(rayDir, hitInfo.normal, blend_ps(ConstOne / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside));
-//            refractionRayDir = normalize(mix(refractionRayDir, normalize(-hitInfo.normal + RandomUnitVector(rngState)), hitInfo.material.refractionRoughness * hitInfo.material.refractionRoughness));
+            specularRayDir = normalize(lerp(specularRayDir, diffuseRayDir, specularRoughnessSqrd));
 
             __m256 refracRoughnessSqrd = hitInfo.material.refractionRoughness* hitInfo.material.refractionRoughness;
+            m256x3 refractionRayDir = rfrct(rayDir, hitInfo.normal, blend_ps(ConstOne / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside));
             refractionRayDir = normalize(lerp(refractionRayDir, normalize(RandomUnitVector_ps(rngState) - hitInfo.normal), refracRoughnessSqrd));
 
             m256x3 newRayDir = lerp(diffuseRayDir, specularRayDir, doSpecular);
@@ -658,32 +696,47 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
             _mm256_set1_epi32((u32)1)
         );
 
+    __m256 c_cameraDistance = set1_ps(30.0f);
 
 
     // The ray starts at the camera position (the origin)
     m256x3 rayPosition = m256x3{ ConstZero, ConstZero, ConstZero };
 
+    m256x3 cameraPosition = m256x3{ ConstZero, ConstZero, -c_cameraDistance };
+
     // calculate the camera distance
-    f32 cameraDistance = 1.0f / tan(c_FOVDegrees * 0.5f * c_pi / 180.0f);
+    //f32 cameraDistance = 1.0f / tan(c_FOVDegrees * 0.5f * c_pi / 180.0f);
+
+    __m256 cameraDistance = set1_ps(tan(c_FOVDegrees * 0.5f * c_pi / 180.0f));
+    //__m256 cameraDistance = set1_ps(1.0f / tan(c_FOVDegrees * 0.5f * c_pi / 180.0f));
+
 
     // calculate coordinates of the ray target on the imaginary pixel plane.
     // -1 to +1 on x,y axis. 1 unit away on the z axis
     m256x2 jitter = m256x2{ Randomf3201_ps(rngState_epi), Randomf3201_ps(rngState_epi) } - .5f;
     m256x2 rayTargetxy = ((fragCoord + jitter) / iResolution) * 2.0f - m256x2{ ConstOne, ConstOne };
-    m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, set1_ps(cameraDistance) };
+    m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, cameraDistance };
+    m256x2 uvJittered = ((fragCoord + jitter) / iResolution);
+    m256x2 screen = uvJittered * 2.0f - m256x2{ ConstOne, ConstOne };
 
     // correct for aspect ratio
     __m256 aspectRatio = iResolution.x / iResolution.y;
     rayTarget.y /= aspectRatio;
+    screen.y /= aspectRatio;
+
+    /*m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, set1_ps(cameraDistance) };
+    rayTarget.y /= aspectRatio;*/
 
     // calculate a normalized vector for the ray direction.
     // it's pointing from the ray position to the ray target.
-    m256x3 rayDir = normalize(rayTarget - rayPosition);
+    //m256x3 rayDir = normalize(rayTarget - cameraPosition);
+    m256x3 rayDir = normalize(m256x3{screen.x, screen.y, cameraDistance});
+    //m256x3 rayDir = normalize(rayTarget - rayPosition);
 
     // raytrace for this pixel
     m256x3 color{ ConstZero, ConstZero, ConstZero };
     for (int index = 0; index < c_numRendersPerFrame; ++index)
-        color += (GetColorForRay(rayPosition, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
+        color += (GetColorForRay(cameraPosition, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
 
     return color;
 }
