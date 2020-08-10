@@ -538,7 +538,7 @@ void TestSceneTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 h
         {
             SMaterialInfo NewMaterial = GetZeroedMaterial();
 
-            __m256 r = set1_ps(sphereIndex) / set1_ps(c_numSpheres - 1) * 0.5f;
+            __m256 r = set1_ps((f32)sphereIndex) / set1_ps(c_numSpheres - 1) * 0.5f;
 
             NewMaterial.albedo = set1x3_ps(0.9f, 0.25f, 0.25f);
             NewMaterial.emissive = set1x3_ps(0.0f, 0.0f, 0.0f);
@@ -574,30 +574,30 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         hitInfo.fromInside = MaskFalse;
         TestSceneTrace(rayPos, rayDir, hitInfo, shouldBreak);
 
+        m256x3 newRet = ret;
+        m256x3 newThroughput = throughput;
+        m256x3 newRayPos = rayPos;
+        m256x3 newRayDir = rayDir;
+
         // if the ray missed, we are done
         __m256 prevShouldBreak = shouldBreak;
         shouldBreak = (hitInfo.dist == set1_ps(c_superFar));
         {
-            m256x3 SampleDir = rayDir;
-            SampleDir.x = -rayDir.x;
-            SampleDir.z = -rayDir.z;
+            m256x3 SampleDir = newRayDir;
+            SampleDir.x = -newRayDir.x;
+            SampleDir.z = -newRayDir.z;
             //m256x3 ambient = EquirectangularTextureSample(Texture, SampleDir);
             m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
             ambient *= throughput;
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
-            ret = blend3_ps(ret, ret + ambient, cond);
+            newRet = blend3_ps(newRet, newRet + ambient, cond);
         }
 
         // if (hitInfo.fromInside)
-        m256x3 newThroughput = throughput;
         newThroughput.x *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.x * hitInfo.dist), hitInfo.fromInside);
         newThroughput.y *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.y * hitInfo.dist), hitInfo.fromInside);
         newThroughput.z *= blend_ps(ConstOne, exp_ps(-hitInfo.material.refractionColor.z * hitInfo.dist), hitInfo.fromInside);
-
-        //// update the ray position
-        //__m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefraction);
-        //rayPos = blend3_ps(((rayPos + (rayDir * hitInfo.dist)) + doRefractionSign * (hitInfo.normal * c_rayPosNormalNudge)), rayPos, shouldBreak);
 
         // apply fresnel
         __m256 specularChance = hitInfo.material.specularChance;
@@ -612,7 +612,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             //__m256 newSpecularChance = FresnelReflectAmount(n1, n2, hitInfo.normal, rayDir, f0, f90);
 
             // Is hitInfo.normal and rayDir flipped?
-            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, rayDir, hitInfo.normal, f0, f90);
+            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, newRayDir, hitInfo.normal, f0, f90);
 
             specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
 
@@ -633,9 +633,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
         // update the ray position
         __m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefractionMask);
-        m256x3 newRayPos = (rayPos + rayDir * hitInfo.dist) + doRefractionSign * hitInfo.normal * c_rayPosNormalNudge;
-        rayPos = blend3_ps(newRayPos, rayPos, shouldBreak);
-
+        newRayPos = (newRayPos + newRayDir * hitInfo.dist) + doRefractionSign * hitInfo.normal * c_rayPosNormalNudge;
 
         // calculate new ray direction, in a cosine weighted hemisphere oriented at normal
         {
@@ -645,21 +643,20 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
             // reflect
             __m256 specularRoughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
-            m256x3 specularRayDir = rayDir - 2.f * hitInfo.normal * dot(rayDir, hitInfo.normal);
+            m256x3 specularRayDir = newRayDir - 2.f * hitInfo.normal * dot(newRayDir, hitInfo.normal);
             specularRayDir = normalize(lerp(specularRayDir, diffuseRayDir, specularRoughnessSqrd));
 
             __m256 refracRoughnessSqrd = hitInfo.material.refractionRoughness* hitInfo.material.refractionRoughness;
-            m256x3 refractionRayDir = rfrct(rayDir, hitInfo.normal, blend_ps(ConstOne / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside));
+            m256x3 refractionRayDir = rfrct(newRayDir, hitInfo.normal, blend_ps(ConstOne / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside));
             refractionRayDir = normalize(lerp(refractionRayDir, normalize(RandomUnitVector_ps(rngState) - hitInfo.normal), refracRoughnessSqrd));
 
-            m256x3 newRayDir = lerp(diffuseRayDir, specularRayDir, doSpecular);
-            newRayDir        = lerp(rayDir     , refractionRayDir, doRefraction);
+            newRayDir = lerp(diffuseRayDir, specularRayDir, doSpecular);
+            newRayDir = lerp(rayDir     , refractionRayDir, doRefraction);
 
-            rayDir = blend3_ps(newRayDir, rayDir, shouldBreak);
         }
 
         // add in emissive lighting
-        ret = blend3_ps((ret + hitInfo.material.emissive * newThroughput), ret, shouldBreak);
+        newRet = newRet + hitInfo.material.emissive * newThroughput;
 
         // update the colorMultiplier
         //throughput = shouldBreak ? throughput :
@@ -668,7 +665,6 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         newThroughput = blend3_ps(newThroughput * lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular), newThroughput, doRefractionMask);
 
         newThroughput = newThroughput / rayProbability;
-        throughput = blend3_ps(newThroughput, throughput, shouldBreak);
 
 
         // Do russian roulette here
@@ -676,6 +672,12 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
 
         }
+
+
+        ret =           blend3_ps(newRet, ret, shouldBreak);
+        throughput =    blend3_ps(newThroughput, throughput, shouldBreak);
+        rayPos =        blend3_ps(newRayPos, rayPos, shouldBreak);
+        rayDir =        blend3_ps(newRayDir, rayDir, shouldBreak);
     }
 
     // return pixel color
