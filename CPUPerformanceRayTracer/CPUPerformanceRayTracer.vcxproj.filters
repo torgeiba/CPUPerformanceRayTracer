@@ -84,6 +84,9 @@
     <ClCompile Include="demofox_path_tracing_v2.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
+    <ClCompile Include="demofox_path_tracing_v3_redo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils.h">
@@ -144,6 +147,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="demofox_path_tracing_v3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_v3_redo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

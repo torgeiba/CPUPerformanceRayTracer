@@ -126,6 +126,7 @@
     <ClCompile Include="demofox_path_tracing_simt_textured.cpp" />
     <ClCompile Include="demofox_path_tracing_v2.cpp" />
     <ClCompile Include="demofox_path_tracing_v3.cpp" />
+    <ClCompile Include="demofox_path_tracing_v3_redo.cpp" />
     <ClCompile Include="mathlib.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -147,6 +148,7 @@
     <ClInclude Include="demofox_path_tracing_simt_textured.h" />
     <ClInclude Include="demofox_path_tracing_v2.h" />
     <ClInclude Include="demofox_path_tracing_v3.h" />
+    <ClInclude Include="demofox_path_tracing_v3_redo.h" />
     <ClInclude Include="mathlib.h" />
     <ClInclude Include="old_code.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
