@@ -678,8 +678,8 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             m256x3 SampleDir = newRayDir;
             SampleDir.x = -newRayDir.x;
             SampleDir.z = -newRayDir.z;
-            //m256x3 ambient = EquirectangularTextureSample(Texture, SampleDir);
-            m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
+            m256x3 ambient = EquirectangularTextureSample(Texture, SampleDir);
+            //m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
             ambient *= newThroughput;
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
