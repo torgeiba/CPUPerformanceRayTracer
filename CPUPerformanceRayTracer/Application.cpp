@@ -258,13 +258,13 @@ void ApplicationState::Render()
 
 	f32* RenderTarget = Buffer->RenderTarget;
 
-	i32 NumTilesX = 2;
-	i32 NumTilesY = 4;
+	i32 NumTilesX = 2 * 8;
+	i32 NumTilesY = 4 * 8;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
 	DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
 
-	f32 c_exposure = .5;
+	f32 c_exposure = 1.;
 
 	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
 	for (i32 TileX = 0; TileX < NumTilesX; TileX++)

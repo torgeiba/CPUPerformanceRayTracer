@@ -210,7 +210,7 @@ __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 incident
         __m256 sinT2 = n * n *(ConstOne - cosX * cosX);
         __m256 newCosX = sroot(ConstOne - sinT2);
         __m256 totalInternalReflection = (sinT2 > ConstOne);
-        cosX = blend_ps( cosX, newCosX, cond);
+        cosX = blend_ps( cosX, newCosX, cond & !totalInternalReflection);
     
     __m256 x = ConstOne - cosX;
     __m256 x2 = x * x;
@@ -616,7 +616,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
             specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
 
-            __m256 chanceMultiplier = (1.f - newSpecularChance) / (1.f - hitInfo.material.specularChance);
+            __m256 chanceMultiplier = (1.f - specularChance) / (1.f - hitInfo.material.specularChance);
             refractionChance = blend_ps(refractionChance, refractionChance * chanceMultiplier, hasSpecularChance);
         }
 

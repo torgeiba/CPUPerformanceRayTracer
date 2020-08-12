@@ -12,7 +12,7 @@ struct work_queue_entry
 	void* Data;
 };
 
-#define WORK_QUEUE_MAX_ENTRIES 256
+#define WORK_QUEUE_MAX_ENTRIES 1024
 struct work_queue
 {
 	u32 MaxEntryCount = WORK_QUEUE_MAX_ENTRIES;
