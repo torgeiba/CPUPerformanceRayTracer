@@ -1,7 +1,4 @@
 #include "demofox_path_tracing_v2.h"
-
-//#include <thread>
-
 #include "work_queue.h"
 
 // The minimunm distance a ray must travel before we consider an intersection.
@@ -134,22 +131,6 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 //    };
 //}
 
-//struct SMaterialInfo
-//{
-//    m256x3 albedo;
-//    m256x3 emissive;
-//    m256x3 specularColor;
-//    __m256 percentSpecular;
-//    __m256 roughness;
-//};
-//
-//struct SRayHitInfo
-//{
-//    __m256 dist;
-//    m256x3 normal;
-//    SMaterialInfo material;
-//};
-
 struct SMaterialInfo
 {
     m256x3 albedo;
@@ -161,8 +142,6 @@ struct SMaterialInfo
     __m256 refractionChance;
     __m256 refractionRoughness;
     m256x3 refractionColor;
-    //__m256 percentSpecular;
-    //__m256 roughness;
 };
 
 struct SRayHitInfo
@@ -213,28 +192,6 @@ __m256 ScalarTriple(m256x3 u, m256x3 v, m256x3 w)
 // Index of Refraction 2 : n2
 // f0 is the minimum reflection (angle = 0 degrees)
 // f0 is the maximum reflection (angle = 90 degrees)
-//static __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 incident, __m256 f0, __m256 f90)
-//{
-//    // Schlick approximation
-//    __m256 r0 = (n1 - n2) / (n1 + n2);
-//    r0 *= r0;
-//
-//    __m256 cosX = -dot(normal, incident);
-//    __m256 cond = (n1 > n2);
-//
-//    __m256 n = n1 / n2;
-//    __m256 sinT2 = n * n * (ConstOne - cosX * cosX);
-//    __m256 newCosX = sroot(ConstOne - sinT2);
-//    __m256 totalInternalReflection = (sinT2 > ConstOne);
-//    cosX = blend_ps(cosX, newCosX, cond);
-//
-//    __m256 x = ConstOne - cosX;
-//    __m256 x2 = x * x;
-//    __m256 ret = r0 + (ConstOne - r0) * x2 * x2 * x;
-//    ret = blend_ps(ret, ConstOne, cond & totalInternalReflection);
-//    return lerp(f0, f90, ret);
-//}
-
 static __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 incident, __m256 f0, __m256 f90)
 {
     // Schlick approximation
@@ -723,12 +680,6 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         __m256 doRefractionMask = (!doSpecularMask) && (refractionChance > ConstZero) && (raySelectRoll < (specularChance + refractionChance));
         __m256 doDiffuseMask    = (!doSpecularMask) && (!doRefractionMask);
 
-        /*assert(all_set(
-         (doSpecularMask && !doRefractionMask && !doDiffuseMask) ||
-         (!doSpecularMask && doRefractionMask && !doDiffuseMask) ||
-         (!doSpecularMask && !doRefractionMask && doDiffuseMask)
-        ));*/
-
         //__m256 doSpecular   = blend_ps(ConstZero, ConstOne, doSpecularMask  );
         //__m256 doRefraction = blend_ps(ConstZero, ConstOne, doRefractionMask);
 
@@ -787,8 +738,6 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         {
             __m256 p = max_ps(newThroughput.x, max_ps(newThroughput.y, newThroughput.z));
             __m256 rouletteTermination = (Randomf3201_ps(rngState) > p);
-
-            //__m256 RouletteShouldBreak = shouldBreak || rouletteTermination;
 
             // Add the energy we 'lose' by randomly terminating paths
             newThroughput = blend3_ps(newThroughput * (1.0f / p), newThroughput, rouletteTermination);
@@ -902,7 +851,6 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
 
             // average the frames together
             m256x3 lastFrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
-            ////color; // texture(iChannel0, fragCoord / iResolution.xy).rgb;
 
             color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
 

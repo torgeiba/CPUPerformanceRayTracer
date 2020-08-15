@@ -9,14 +9,14 @@ to
 RGBRGBRGBRGBRGBRGBRGBRGB
 
 
-texture mapping / sampling
+texture mapping / sampling   ------------------ Partly Done
 
 SIMD rendering ----------- Done
 
 threaded rendering
  - spawn and join threads each frame ---------- Done
  - Thread pooling------------------------------ Done
- - Thread safe work queue
+ - Thread safe work queue --------------------- Done
  - ensure that resizing backbuffer and rendertarget does not interfere with threaded rendering
  - threading of copy from rendertarget to BMP display buffer
 

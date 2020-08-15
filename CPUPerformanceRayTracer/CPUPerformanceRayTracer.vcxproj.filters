@@ -25,6 +25,9 @@
     <Filter Include="Third Party">
       <UniqueIdentifier>{13466201-ee2d-4b50-9e02-b9492e6c2f73}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Old Rendering Code">
+      <UniqueIdentifier>{3ff259e8-e776-4912-9818-4794a23b7c1b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">
@@ -78,14 +81,14 @@
     <ClCompile Include="demofox_path_tracing_simt_textured.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_v3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="demofox_path_tracing_v2.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
     <ClCompile Include="demofox_path_tracing_v3_redo.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_v3.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -99,27 +102,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="rendering.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_scalar.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_scalar_branchless.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_simd.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_simd_tiled.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_simt.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_simt_pooled.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="old_code.h">
@@ -140,17 +122,38 @@
     <ClInclude Include="texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_simt_textured.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_v2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="demofox_path_tracing_v3.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="demofox_path_tracing_v3_redo.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_scalar.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_scalar_branchless.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simd.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simd_tiled.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simt.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simt_pooled.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_simt_textured.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_v2.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_v3.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
