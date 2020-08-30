@@ -237,6 +237,15 @@ inline m256x3 clamp(m256x3 x, m256x3 minval, m256x3 maxval) {
 	};
 }
 
+inline __m256 saturate(__m256 x) { return clamp(x, _mm256_set1_ps(0.f), _mm256_set1_ps(1.f)); }
+inline m256x3 saturate(m256x3 x) {
+	return m256x3{
+		saturate(x.x),
+		saturate(x.y),
+		saturate(x.z)
+	};
+}
+
 inline f32 rcp(f32 a) { return 1.f / a;    } // reciprocal
 inline __m256 rcp(__m256 a)   { return _mm256_rcp_ps(a); } // reciprocal
 
@@ -290,6 +299,12 @@ inline __m256 maskload_ps(f32 const* mem_addr, __m256i mask) { return _mm256_mas
 
 inline void store_ps(f32* mem_addr, __m256 a) { _mm256_store_ps(mem_addr, a); }
 inline void maskstore_ps(f32* mem_addr, __m256i mask, __m256 a) { _mm256_maskstore_ps(mem_addr, mask, a); }
+
+// Scale ~ size of datatype (?)
+// Gather addresses calculated in bytes
+// each address loads an f32 (4 byte)
+// inline __m256 gather_ps(f32 const* base_addr, __m256i vindex, const i32 scale) { return _mm256_i32gather_ps(base_addr, vindex, scale); }
+// inline __m256 mask_gather_ps(__m256 src, f32 const * base_addr, __m256i vindex, __m256 mask, const i32 scale) { return _mm256_mask_i32gather_ps(src, base_addr, vindex, mask, scale); }
 
 inline __m256 blend_ps(__m256 a, __m256 b, __m256 mask) { return  _mm256_blendv_ps(a, b, mask); }
 inline __m256 if_then_else(__m256 cond, __m256 thenDo, __m256 elseDo) { return  _mm256_blendv_ps(elseDo, thenDo, cond); } // switcheroo of blend_ps to match C ternary operator

@@ -65,3 +65,7 @@ spatial data structures
 
 ----------------------------------------------------
 
+resize screen -> recalculate new backbuffer size(s) -> recalculate new tile sizes
+(-> reallocate tilebuffers ? )
+-> recalculate tile info for work queue
+-> reallocate buffers -> 

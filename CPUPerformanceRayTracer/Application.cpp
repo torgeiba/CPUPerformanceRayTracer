@@ -13,6 +13,8 @@
 
 #include <emmintrin.h>
 
+#include <intrin.h>
+
 #include "mathlib.h"
 
 #include "rendering.h"
@@ -106,10 +108,19 @@ inline void ApplicationState::RunMessageLoop() {
 #include "asset_loading.h"
 texture Texture;
 
+#include "intrinsic_utils.h"
+
 void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 {
+	// TODO remove
+	/*for (u32 i = 0; i < 127; i++)
+	{
+		u32 n = RoundUpToPowerOfTwo(i);
 
-	
+		std::cout << n << std::endl;
+	}*/
+
+
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\Delta_2k.hdr";
 	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
 

@@ -35,7 +35,7 @@ static bool DoNextWorkQueueEntry(work_queue* Queue)
 // TODO make this return a bool if it fails and queue is full
 void AddWorkQueueEntry(work_queue* Queue, work_queue_callback* Callback, void* Data)
 {
-	//TODO: for multiple producers add interlocked compare exchange to entrycount
+	// TODO: for multiple producers add interlocked compare exchange to entrycount
 	// TODO: Switch to interlockedcompare exchange eventually so that any thread can add?
 	u32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % Queue->MaxEntryCount;
 	assert(NewNextEntryToWrite != Queue->NextEntryToRead);

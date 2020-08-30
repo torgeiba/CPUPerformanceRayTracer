@@ -28,6 +28,12 @@
     <Filter Include="Header Files\Old Rendering Code">
       <UniqueIdentifier>{3ff259e8-e776-4912-9818-4794a23b7c1b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Old test code">
+      <UniqueIdentifier>{16ed64c0-99d7-4213-9fba-db0b0e22914d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Old test code">
+      <UniqueIdentifier>{a9c5cf6f-95a7-4da6-876c-8b75c0bbe01b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">
@@ -40,9 +46,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="mathlib.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="threading.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="demofox_path_tracing.cpp">
@@ -90,6 +93,12 @@
     <ClCompile Include="demofox_path_tracing_v3.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
+    <ClCompile Include="tiles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="threading.cpp">
+      <Filter>Source Files\Old test code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="utils.h">
@@ -111,9 +120,6 @@
       <Filter>Third Party</Filter>
     </ClInclude>
     <ClInclude Include="asset_loading.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="threading.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="work_queue.h">
@@ -154,6 +160,15 @@
     </ClInclude>
     <ClInclude Include="demofox_path_tracing.h">
       <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="tiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="intrinsic_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="threading.h">
+      <Filter>Header Files\Old test code</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
