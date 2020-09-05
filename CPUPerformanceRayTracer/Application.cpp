@@ -23,7 +23,8 @@
 #include "demofox_path_tracing_scalar_branchless.h"
 //#include "demofox_path_tracing_simt.h"
 //#include "demofox_path_tracing_simt_textured.h"
-#include "demofox_path_tracing_v3_redo.h"
+//#include "demofox_path_tracing_v3_redo.h"
+#include "demofox_path_tracing_optimization_v1.h"
 
 // Global instance
 ApplicationState App;
@@ -273,7 +274,8 @@ void ApplicationState::Render()
 	i32 NumTilesY = 4 * 8;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+	DemofoxRenderOptV1(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+	//DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
 
 	f32 c_exposure = 1.;
 

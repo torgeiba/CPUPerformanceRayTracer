@@ -100,7 +100,7 @@ work_queue* MakeWorkQueue()
 	{
 		DWORD ThreadID;
 		HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Queue, 0, &ThreadID);
-		CloseHandle(ThreadHandle);
+		if(ThreadHandle != 0) CloseHandle(ThreadHandle);
 	}
 
 	return Queue;

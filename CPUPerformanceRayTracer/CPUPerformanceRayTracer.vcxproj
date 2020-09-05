@@ -94,6 +94,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -111,12 +112,14 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="asset_loading.cpp" />
     <ClCompile Include="demofox_path_tracing.cpp" />
+    <ClCompile Include="demofox_path_tracing_optimization_v1.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar_branchless.cpp" />
     <ClCompile Include="demofox_path_tracing_simd.cpp" />
@@ -140,6 +143,7 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="asset_loading.h" />
     <ClInclude Include="demofox_path_tracing.h" />
+    <ClInclude Include="demofox_path_tracing_optimization_v1.h" />
     <ClInclude Include="demofox_path_tracing_scalar.h" />
     <ClInclude Include="demofox_path_tracing_scalar_branchless.h" />
     <ClInclude Include="demofox_path_tracing_simd.h" />

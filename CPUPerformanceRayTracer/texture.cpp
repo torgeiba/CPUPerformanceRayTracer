@@ -31,10 +31,6 @@ m256x3 TexelFetchGather(texture texture, __m256i Rows, __m256i Cols)
 	__m256i PixelOffsets  = _mm256_add_epi32(Cols, RowOffset);
 	__m256i NumComponents = _mm256_set1_epi32(texture.Components);
 	__m256i Indices       = _mm256_mullo_epi32(NumComponents, PixelOffsets);
-
-	const i32 scale = sizeof(f32);
-	__m256i GreenChannelOffset = _mm256_set1_epi32(1);
-	__m256i BlueChannelOffset = _mm256_set1_epi32(2);
 	m256x3 Result = GatherRGB(texture.Data, Indices);
 	return Result;
 }
