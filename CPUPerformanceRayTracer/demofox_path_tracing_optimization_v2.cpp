@@ -1,4 +1,4 @@
-#include "demofox_path_tracing_optimization_v1.h"
+#include "demofox_path_tracing_optimization_v2.h"
 #include "work_queue.h"
 
 // The minimunm distance a ray must travel before we consider an intersection.
@@ -24,10 +24,11 @@ const int c_numRendersPerFrame = 1;
 const f32 c_pi = 3.14159265359f;
 const f32 c_twopi = 2.0f * c_pi;
 
-static const __m256 MaskFalse{ set1_ps(0.f) };
+static const __m256 MaskFalse{ setzero_ps() };
 static const __m256 MaskTrue{ !MaskFalse };
 static const __m256 ConstOne{ set1_ps(1.f) };
-static const __m256 ConstZero{ set1_ps(0.f) };
+//static const __m256 ConstZero{ set1_ps(0.f) };
+static const __m256 ConstZero{ setzero_ps() };
 
 static f32 iFrame = 0.f;
 
@@ -192,27 +193,71 @@ struct QuadSceneObject
     m256x3 V1;// = set1x3_ps(25.0f, -12.5f, 5.0f);
     m256x3 V2;// = set1x3_ps(25.0f, -12.5f, -5.0f);
     m256x3 V3;// = set1x3_ps(-25.0f, -12.5f, -5.0f);
+
+    m256x3 NxV01;
+    m256x3 NxV12;
+    m256x3 NxV20;
+
+    // Top tri
+    m256x3 NxV02;
+    m256x3 NxV23;
+    m256x3 NxV30;
+
+    // precomputed / cached info
+    m256x3 normal;
 };
 
-//static void PrecomputeQuadData(QuadSceneObject& Quad, m256x3 rayOrigin)
-//{
-//    m256x3 V0 = Quad.V0 - rayOrigin;
-//    m256x3 V1 = Quad.V1 - rayOrigin;
-//    m256x3 V2 = Quad.V2 - rayOrigin;
-//    m256x3 V3 = Quad.V3 - rayOrigin;
-//
-//    Quad.E01 = cross(V0, V1);
-//
-//    //__m256 DetA = dot(invQuad.E01, 
-//
-//    Quad.E12 = cross(V1, V2);
-//    Quad.E20 = cross(V2, V0);
-//
-//    Quad.E13 = cross(V1, V3);
-//    Quad.E32 = cross(V3, V2);
-//
-//    Quad.normal = cross(V1-V0, V2-V0);
-//}
+static void PrecomputeQuadData(QuadSceneObject& Quad)
+{
+//          e32 
+//     3---------2
+//     |       / |
+// e30 | e02 /   |  e12
+//     |   / e20 |
+//     | /       |
+//     0---------1
+//         e01
+
+    m256x3 V0 = Quad.V0;
+    m256x3 V1 = Quad.V1;
+    m256x3 V2 = Quad.V2;
+    m256x3 V3 = Quad.V3;
+
+    m256x3 V01 = V1 - V0;
+    m256x3 V02 = V2 - V0;
+    m256x3 V30 = V0 - V3;
+
+    m256x3 V20 = -V02;
+    m256x3 V23 = V3 - V2;
+    m256x3 V12 = V2 - V1;
+
+    m256x3 V01xV02 = cross(V01, V02);
+    m256x3 V02xV03 = cross(V30, V01);
+    m256x3 N = normalize(V01xV02);
+
+    __m256 DetTop = dot(V02xV03, N);
+    __m256 DetBot = dot(V01xV02, N);
+
+    // Bottom tri
+    m256x3 NxV01 = cross(N, V01) / DetBot;
+    m256x3 NxV12 = cross(N, V12) / DetBot;
+    m256x3 NxV20 = cross(N, V20) / DetBot;
+
+    // Top tri
+    m256x3 NxV02 = cross(N, V02) / DetTop;
+    m256x3 NxV23 = cross(N, V23) / DetTop;
+    m256x3 NxV30 = cross(N, V30) / DetTop;
+
+    Quad.normal = N;
+
+    Quad.NxV01 = NxV01; // cross(V2, V1);
+    Quad.NxV12 = NxV12; // cross(V0, V2);
+    Quad.NxV20 = NxV20; // cross(V1, V0);
+    Quad.NxV02 = NxV02; // cross(V3, V2);
+    Quad.NxV23 = NxV23; // cross(V2, V0);
+    Quad.NxV30 = NxV30; // cross(V0, V3);
+
+}
 
 struct SphereSceneObject
 {
@@ -271,8 +316,16 @@ struct Scene
     m256x3 sceneTranslation;
     m256x4 sceneTranslation4;
 };
-
 static Scene scene;
+
+struct Camera
+{
+    m256x3 Position;
+    __m256 Distance;
+
+};
+static Camera camera;
+
 
 static SMaterialInfo GatherMaterials(Scene& scene, __m256i materialIndices)
 {
@@ -336,9 +389,15 @@ static __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 i
     return lerp(f0, f90, ret);
 }
 
+#if 0
 static
-__m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x3 a, m256x3 b, m256x3 c, m256x3 d)
+__m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneObject& quad)
 {
+    m256x3 a = quad.V0;
+    m256x3 b = quad.V1;
+    m256x3 c = quad.V2;
+    m256x3 d = quad.V3;
+
     __m256 result = MaskFalse;
     __m256 early_return = MaskFalse;
 
@@ -448,13 +507,86 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x3 a, 
     return result;
 }
 
+#else
+
 static
-__m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 sphere)
+__m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneObject& quad)
 {
     __m256 result = MaskFalse;
     __m256 early_return = MaskFalse;
 
-    //get the vector from the center of this sphere to where the ray begins.
+    // calculate normal and flip vertices order if needed
+    m256x3 normal = quad.normal;
+    {
+        __m256 cond = (dot(normal, rayDir) > ConstZero);
+        normal = blend3_ps(normal, -normal, cond);
+    }
+
+    //          e32 
+    //     3---------2
+    //     |       / |
+    // e30 | e02 /   |  e12
+    //     |   / e20 |
+    //     | /       |
+    //     0---------1
+    //         e01
+
+    // Barycentric coordinates from direction and invQuad
+    // Dual edges / bivectors
+    m256x3 rayOffset = quad.V0 - rayPos;
+    __m256 rayDirDotN = dot(rayDir, normal);
+    __m256 rayOffsetDotN = dot(rayOffset, normal);
+    __m256 dist = rayOffsetDotN / rayDirDotN;
+    m256x3 hit = dist * rayDir - rayOffset;
+
+    // Bot tri
+    __m256 A0 = dot(hit, quad.NxV01); // v0, v1, v2, a, b, c
+    __m256 A1 = dot(hit, quad.NxV20);
+    __m256 A2 = 1.0f - A0 - A1; 
+
+    // Top tri
+    __m256 B0 = dot(hit, quad.NxV30); // v0, v2, v3, a, c, d
+    __m256 B1 = dot(hit, quad.NxV02);
+    __m256 B2 = 1.0f - B0 - B1;
+
+    // check all positive coords for tri1:
+
+    __m256 a0 = A0 >= ConstZero;
+    __m256 a1 = A1 >= ConstZero;
+    __m256 a2 = A2 >= ConstZero;
+    __m256 b0 = B0 >= ConstZero;
+    __m256 b1 = B1 >= ConstZero;
+    __m256 b2 = B2 >= ConstZero;
+
+    __m256 tri1AllPositive = a0 && a1 && a2;
+    __m256 tri2AllPositive = b0 && b1 && b2;
+
+    if (all_set(!(tri1AllPositive || tri2AllPositive))) return result;
+
+    {
+        __m256 cond =
+            (tri1AllPositive || tri2AllPositive) && // || tri1AllNegative || tri2AllNegative) &&
+            (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
+        //cond = (!(early_return) && cond);
+        {
+            info.fromInside = blend_ps(info.fromInside, MaskFalse, cond);
+            info.dist = blend_ps(info.dist, dist, cond);
+            info.normal = blend3_ps(info.normal, normal, cond);
+            result = blend_ps(result, MaskTrue, cond);
+        }
+    }
+
+    return result;
+}
+
+#endif
+
+static
+__m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 sphere)
+{
+    __m256 early_return = MaskFalse;
+
+    // get the vector from the center of this sphere to where the ray begins.
     m256x3 spherexyz = m256x3{ sphere.x, sphere.y, sphere.z };
     m256x3 m = rayPos - spherexyz;
 
@@ -463,48 +595,35 @@ __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 s
     __m256 c = dot(m, m) - sphere.w * sphere.w;
 
     //exit if r's origin outside s (c > 0) and r pointing away from s (b > 0)
-    {
-        __m256 cond = c > ConstZero && b > ConstZero;
-        result = blend_ps(result, MaskFalse, cond);
-        early_return = blend_ps(early_return, MaskTrue, cond);
-    }
-
-    if (all_set(early_return)) return result;
+    __m256 cond = c > ConstZero && b > ConstZero;
+    early_return = blend_ps(early_return, MaskTrue, cond);
+    
+    if (all_set(early_return)) return MaskFalse;
 
     //calculate discriminant
     __m256 discr = b * b - c;
 
     //a negative discriminant corresponds to ray missing sphere
-    {
-        __m256 cond = (discr < ConstZero);
-        result = blend_ps(result, MaskFalse, cond);
-        early_return = blend_ps(early_return, MaskTrue, cond);
-    }
+    early_return = blend_ps(early_return, MaskTrue, discr < ConstZero);
 
-    if (all_set(early_return)) return result;
+    if (all_set(early_return)) return MaskFalse;
 
     //ray now found to intersect sphere, compute smallest t value of intersection
-    __m256 fromInside = MaskFalse;
     __m256 dist = -b - sroot(discr);
 
-    {
-        fromInside = (dist < ConstZero);
-        dist = blend_ps(dist, -b + sroot(discr), fromInside);
-    }
-
-    {
-        __m256 distCheck = (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
-        __m256 check = (!(early_return) && distCheck);
-        info.fromInside = blend_ps(info.fromInside, fromInside, check);
-        info.dist = blend_ps(info.dist, dist, check);
-        info.normal = blend3_ps(
-            info.normal,
-            (normalize((rayPos + (rayDir * dist)) - spherexyz)) * blend_ps(ConstOne, -ConstOne, fromInside),
-            check);
-        result = blend_ps(result, MaskTrue, check);
-    }
-
-    return result;
+    __m256 fromInside = (dist < ConstZero);
+    dist = blend_ps(dist, -b + sroot(discr), fromInside);
+    
+    __m256 distCheck = (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
+    __m256 check = (!(early_return) && distCheck);
+    info.fromInside = blend_ps(info.fromInside, fromInside, check);
+    info.dist = blend_ps(info.dist, dist, check);
+    info.normal = blend3_ps(
+        info.normal,
+        (normalize((rayPos + (rayDir * dist)) - spherexyz)) * blend_ps(ConstOne, -ConstOne, fromInside),
+        check);
+    
+    return check;
 }
 
 #define SCENE 1
@@ -515,7 +634,7 @@ void TestSceneTrace(Scene& scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hit
     i32 objectIndex = 0;
     for (i32 quadIndex = 0; quadIndex < scene.NumQuadObjects; quadIndex++)
     {
-        __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, scene.QuadObjects[quadIndex].V0, scene.QuadObjects[quadIndex].V1, scene.QuadObjects[quadIndex].V2, scene.QuadObjects[quadIndex].V3)));
+        __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, scene.QuadObjects[quadIndex])));
         hitInfo.materialIndex = _mm256_blendv_epi8(hitInfo.materialIndex, _mm256_set1_epi32(objectIndex), _mm256_castps_si256(cond));
         objectIndex++;
     }
@@ -574,10 +693,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
         if (all_set(shouldBreak)) break;
 
-        // if (hitInfo.fromInside)
-        newThroughput.x = blend_ps(newThroughput.x, newThroughput.x * exp_ps(-hitInfo.material.refractionColor.x * hitInfo.dist), hitInfo.fromInside);
-        newThroughput.y = blend_ps(newThroughput.y, newThroughput.y * exp_ps(-hitInfo.material.refractionColor.y * hitInfo.dist), hitInfo.fromInside);
-        newThroughput.z = blend_ps(newThroughput.z, newThroughput.z * exp_ps(-hitInfo.material.refractionColor.z * hitInfo.dist), hitInfo.fromInside);
+        newThroughput = blend3_ps(newThroughput, newThroughput * exp_ps(-hitInfo.material.refractionColor * hitInfo.dist), hitInfo.fromInside); // if (hitInfo.fromInside)
 
         // get the pre-fresnel chances
         __m256 specularChance = hitInfo.material.specularChance;
@@ -696,19 +812,14 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
             _mm256_set1_epi32((u32)1)
         );
 
-
-
     // The ray starts at the camera position (the origin)
     m256x3 rayPosition = m256x3{ ConstZero, ConstZero, ConstZero };
-
-    // calculate the camera distance
-    f32 cameraDistance = 1.0f / tan(c_FOVDegrees * 0.5f * c_pi / 180.0f);
 
     // calculate coordinates of the ray target on the imaginary pixel plane.
     // -1 to +1 on x,y axis. 1 unit away on the z axis
     m256x2 jitter = m256x2{ Randomf3201_ps(rngState_epi), Randomf3201_ps(rngState_epi) } - .5f;
     m256x2 rayTargetxy = ((fragCoord + jitter) / iResolution) * 2.0f - m256x2{ ConstOne, ConstOne };
-    m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, set1_ps(cameraDistance) };
+    m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, camera.Distance };
 
     // correct for aspect ratio
     __m256 aspectRatio = iResolution.x / iResolution.y;
@@ -717,14 +828,14 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
     // calculate a normalized vector for the ray direction.
     // it's pointing from the ray position to the ray target.
     m256x3 rayDir = normalize(rayTarget - rayPosition);
-    rayDir.z = rayDir.z * -1.f;
+    rayDir.z = -rayDir.z;
 
-    m256x3 cameraPosition = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
+    //m256x3 cameraPosition = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
 
     // raytrace for this pixel
     m256x3 color{ ConstZero, ConstZero, ConstZero };
     for (int index = 0; index < c_numRendersPerFrame; ++index)
-        color += (GetColorForRay(cameraPosition, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
+        color += (GetColorForRay(camera.Position, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
 
     return color;
 }
@@ -804,6 +915,9 @@ static bool threadpooluninitialized = true;
 static WorkerThreadData WorkData[NumMaxThreads];
 
 static bool scene_uninitialized = true;
+static bool camera_uninitialized = true;
+
+static bool tileDataChanged = true;
 
 static WORK_QUEUE_CALLBACK(DoWorkerThreadWork) // test callback function
 {
@@ -821,7 +935,7 @@ static work_queue* Queue;
 //    return scene.NumMaterials;
 //}
 
-static i32 AddMaterialToScene(Scene& scene, SceneMaterial material)
+i32 AddMaterialToScene(Scene& scene, SceneMaterial material)
 {
     scene.materials.albedoR[scene.NumMaterials] = material.albedo.x;
     scene.materials.albedoG[scene.NumMaterials] = material.albedo.x;
@@ -843,19 +957,20 @@ static i32 AddMaterialToScene(Scene& scene, SceneMaterial material)
     return scene.NumMaterials++;
 }
 
-static i32 AddQuadObjectToScene(Scene& ScenePtr, QuadSceneObject NewQuadObject)
+i32 AddQuadObjectToScene(Scene& ScenePtr, QuadSceneObject NewQuadObject)
 {
+    PrecomputeQuadData(NewQuadObject);
     scene.QuadObjects[scene.NumQuadObjects++] = NewQuadObject;
     return scene.NumQuadObjects;
 }
 
-static i32 AddSphereObjectToScene(Scene& ScenePtr, SphereSceneObject NewSphereObject)
+i32 AddSphereObjectToScene(Scene& ScenePtr, SphereSceneObject NewSphereObject)
 {
     scene.SphereObjects[scene.NumSphereObjects++] = NewSphereObject;
     return scene.NumQuadObjects;
 }
 
-static void InitializeScene()
+void InitializeScene()
 {
     // to move the scene around, since we can't move the camera yet
 #if SCENE == 1
@@ -865,17 +980,17 @@ static void InitializeScene()
 #endif
     scene.sceneTranslation4 = m256x4{ scene.sceneTranslation.x, scene.sceneTranslation.y, scene.sceneTranslation.z, ConstZero };
 
-   // floor material
+    // floor material
     {
         QuadSceneObject NewQuadObject{ 0 };
-        NewQuadObject.V0 = set1x3_ps(-25.0f, -12.5f, 5.0f)  + scene.sceneTranslation;
-        NewQuadObject.V1 = set1x3_ps(25.0f, -12.5f, 5.0f)   + scene.sceneTranslation;
-        NewQuadObject.V2 = set1x3_ps(25.0f, -12.5f, -5.0f)  + scene.sceneTranslation;
+        NewQuadObject.V0 = set1x3_ps(-25.0f, -12.5f, 5.0f) + scene.sceneTranslation;
+        NewQuadObject.V1 = set1x3_ps(25.0f, -12.5f, 5.0f) + scene.sceneTranslation;
+        NewQuadObject.V2 = set1x3_ps(25.0f, -12.5f, -5.0f) + scene.sceneTranslation;
         NewQuadObject.V3 = set1x3_ps(-25.0f, -12.5f, -5.0f) + scene.sceneTranslation;
         AddQuadObjectToScene(scene, NewQuadObject);
 
-        SceneMaterial NewMaterial{0};
-        NewMaterial.albedo = f32x3{0.7f, 0.7f, 0.7f};
+        SceneMaterial NewMaterial{ 0 };
+        NewMaterial.albedo = f32x3{ 0.7f, 0.7f, 0.7f };
         AddMaterialToScene(scene, NewMaterial);
     }
 
@@ -899,9 +1014,9 @@ static void InitializeScene()
     // ceiling
     {
         QuadSceneObject NewQuadObject{ 0 };
-        NewQuadObject.V0 = set1x3_ps(-7.5f, 12.5f, 5.0f)  + scene.sceneTranslation;
-        NewQuadObject.V1 = set1x3_ps(7.5f, 12.5f, 5.0f)   + scene.sceneTranslation;
-        NewQuadObject.V2 = set1x3_ps(7.5f, 12.5f, -5.0f)  + scene.sceneTranslation;
+        NewQuadObject.V0 = set1x3_ps(-7.5f, 12.5f, 5.0f) + scene.sceneTranslation;
+        NewQuadObject.V1 = set1x3_ps(7.5f, 12.5f, 5.0f) + scene.sceneTranslation;
+        NewQuadObject.V2 = set1x3_ps(7.5f, 12.5f, -5.0f) + scene.sceneTranslation;
         NewQuadObject.V3 = set1x3_ps(-7.5f, 12.5f, -5.0f) + scene.sceneTranslation;
         AddQuadObjectToScene(scene, NewQuadObject);
 
@@ -914,14 +1029,14 @@ static void InitializeScene()
     {
         QuadSceneObject NewQuadObject{ 0 };
         NewQuadObject.V0 = set1x3_ps(-5.0f, 12.4f, 2.5f) + scene.sceneTranslation;
-        NewQuadObject.V1 = set1x3_ps(5.0f, 12.4f, 2.5f)  + scene.sceneTranslation;
+        NewQuadObject.V1 = set1x3_ps(5.0f, 12.4f, 2.5f) + scene.sceneTranslation;
         NewQuadObject.V2 = set1x3_ps(5.0f, 12.4f, -2.5f) + scene.sceneTranslation;
         NewQuadObject.V3 = set1x3_ps(-5.0f, 12.4f, -2.5f) + scene.sceneTranslation;
         AddQuadObjectToScene(scene, NewQuadObject);
 
         SceneMaterial NewMaterial{ 0 };
         //NewMaterial.albedo = f32x3{ 0.7f, 0.7f, 0.7f };
-        NewMaterial.emissive = (f32x3{ 1.0f, 0.9f, 0.7f } * 20.0f);
+        NewMaterial.emissive = (f32x3{ 1.0f, 0.9f, 0.7f } *20.0f);
         AddMaterialToScene(scene, NewMaterial);
     }
 
@@ -936,21 +1051,27 @@ static void InitializeScene()
 
         f32 r = (((f32)sphereIndex) / (c_numSpheres - 1)) * 0.5f;
 
-        NewMaterial.specularChance      = 0.02f;
-        NewMaterial.IOR                 = 1.1f;
-        NewMaterial.refractionChance    = 1.0f;
-        NewMaterial.albedo              = f32x3{ 0.9f, 0.25f, 0.25f };
-        NewMaterial.emissive            = f32x3{0.0f, 0.0f, 0.0f};
-        NewMaterial.refractionColor     = f32x3{0.0f, 0.5f, 1.0f};
-        NewMaterial.specularColor       = f32x3{1.0f, 1.0f, 1.0f} * 0.8f;
-        NewMaterial.specularRoughness   = r;
+        NewMaterial.specularChance = 0.02f;
+        NewMaterial.IOR = 1.1f;
+        NewMaterial.refractionChance = 1.0f;
+        NewMaterial.albedo = f32x3{ 0.9f, 0.25f, 0.25f };
+        NewMaterial.emissive = f32x3{ 0.0f, 0.0f, 0.0f };
+        NewMaterial.refractionColor = f32x3{ 0.0f, 0.5f, 1.0f };
+        NewMaterial.specularColor = f32x3{ 1.0f, 1.0f, 1.0f } *0.8f;
+        NewMaterial.specularRoughness = r;
         NewMaterial.refractionRoughness = r;
 
         AddMaterialToScene(scene, NewMaterial);
     }
 }
 
-void DemofoxRenderOptV1(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+void InitializeCamera()
+{
+    camera.Distance = set1_ps(1.0f / tan(c_FOVDegrees * 0.5f * c_pi / 180.0f));
+    camera.Position = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
+}
+
+void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture
 )
 {
@@ -964,11 +1085,20 @@ void DemofoxRenderOptV1(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
 
     i32 NumThreads = NumTilesX * NumTilesY;
 
+    // Camera must be initialized before the rest of the scene because of precomputation for quads (TODO: fix this dependency)
+    if (camera_uninitialized)
+    {
+        InitializeCamera();
+        camera_uninitialized = false;
+    }
+
     if (scene_uninitialized)
     {
         InitializeScene();
         scene_uninitialized = false;
     }
+
+    
 
     // If first time we render, initialize threadpool. TODO: do this at app initialization instead
     if (threadpooluninitialized)
@@ -979,41 +1109,49 @@ void DemofoxRenderOptV1(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
 
     iFrame += 1.0f;
 
-    for (i32 TileX = 0; TileX < NumTilesX; TileX++)
+    if (tileDataChanged)
     {
-        i32 TileMinX = TileX * TileWidth;
-        i32 TileMaxX = TileMinX + (TileWidth - 1);
-        for (i32 TileY = 0; TileY < NumTilesY; TileY++)
+        for (i32 TileX = 0; TileX < NumTilesX; TileX++)
         {
-            // render tile (TileX, TileY)
-            i32 TileMinY = TileY * TileHeight;
-            i32 TileMaxY = TileMinY + (TileHeight - 1);
-
-            RenderTileInfo TileInfo;
+            i32 TileMinX = TileX * TileWidth;
+            i32 TileMaxX = TileMinX + (TileWidth - 1);
+            for (i32 TileY = 0; TileY < NumTilesY; TileY++)
             {
-                TileInfo.TileX = TileX;
-                TileInfo.TileY = TileY;
+                // render tile (TileX, TileY)
+                i32 TileMinY = TileY * TileHeight;
+                i32 TileMaxY = TileMinY + (TileHeight - 1);
 
-                TileInfo.TileHeight = TileHeight;
-                TileInfo.TileWidth = TileWidth;
+                RenderTileInfo TileInfo;
+                {
+                    TileInfo.TileX = TileX;
+                    TileInfo.TileY = TileY;
 
-                TileInfo.TileMinX = TileMinX;
-                TileInfo.TileMaxX = TileMaxX < BufferWidth ? TileMaxX : (BufferWidth - 1);
+                    TileInfo.TileHeight = TileHeight;
+                    TileInfo.TileWidth = TileWidth;
 
-                TileInfo.TileMinY = TileMinY;
-                TileInfo.TileMaxY = TileMaxY < BufferHeight ? TileMaxY : (BufferHeight - 1);
+                    TileInfo.TileMinX = TileMinX;
+                    TileInfo.TileMaxX = TileMaxX < BufferWidth ? TileMaxX : (BufferWidth - 1);
 
-                TileInfo.TileHeight = TileInfo.TileMaxY - TileInfo.TileMinY + 1;
-                TileInfo.TileWidth = TileInfo.TileMaxX - TileInfo.TileMinX + 1;
+                    TileInfo.TileMinY = TileMinY;
+                    TileInfo.TileMaxY = TileMaxY < BufferHeight ? TileMaxY : (BufferHeight - 1);
+
+                    TileInfo.TileHeight = TileInfo.TileMaxY - TileInfo.TileMinY + 1;
+                    TileInfo.TileWidth = TileInfo.TileMaxX - TileInfo.TileMinX + 1;
+                }
+
+                i32 FlatTileIndex = TileX + NumTilesX * TileY;
+                WorkData[FlatTileIndex].BufferInfo = BufferInfo;
+                WorkData[FlatTileIndex].TileInfo = TileInfo;
+                WorkData[FlatTileIndex].Texture = Texture;
             }
-
-            i32 FlatTileIndex = TileX + NumTilesX * TileY;
-            WorkData[FlatTileIndex].BufferInfo = BufferInfo;
-            WorkData[FlatTileIndex].TileInfo = TileInfo;
-            WorkData[FlatTileIndex].Texture = Texture;
-            void* DataPointer = &WorkData[FlatTileIndex];
-            AddWorkQueueEntry(Queue, DoWorkerThreadWork, DataPointer);
         }
+        tileDataChanged = false;
+    }
+
+
+    for (i32 FlatTileIndex = 0; FlatTileIndex < NumTilesX * NumTilesY - 1; FlatTileIndex++)
+    {
+        AddWorkQueueEntry(Queue, DoWorkerThreadWork, &WorkData[FlatTileIndex]);
     }
 
     CompleteAllWork(Queue);

@@ -16,6 +16,7 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+
 i64 GetPerformanceCounter();
 f64 GetPerformanceCounterIntervalSeconds(i64 Start, i64 End);
 void InitializeQueryPerformanceCounter();

@@ -96,10 +96,13 @@
     <ClCompile Include="threading.cpp">
       <Filter>Source Files\Old test code</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v1.cpp">
+    <ClCompile Include="demofox_path_tracing_v3_redo.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_v3_redo.cpp">
+    <ClCompile Include="demofox_path_tracing_optimization_v1.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
   </ItemGroup>
@@ -170,10 +173,13 @@
     <ClInclude Include="threading.h">
       <Filter>Header Files\Old test code</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_optimization_v1.h">
+    <ClInclude Include="demofox_path_tracing_v3_redo.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_optimization_v2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_v3_redo.h">
+    <ClInclude Include="demofox_path_tracing_optimization_v1.h">
       <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
   </ItemGroup>

@@ -84,6 +84,9 @@ inline f32 fmadot(f32x4 u, f32x4 v) { return fma(u.x, v.x, fma(u.y, v.y, fma(u.z
 // search for Vec8f type
 // For _vectorcall: http://software.intel.com/en-us/articles/vectorcall-and-regcall-demystified
 
+typedef __m256 m256;
+typedef __m256 Mask;
+
 struct m256x2 { __m256 x, y;       };
 struct m256x3 { __m256 x, y, z;    };
 struct m256x4 { __m256 x, y, z, w; };
@@ -215,41 +218,71 @@ inline __m256 bitwise_not(__m256 a) { return _mm256_xor_ps(a, _mm256_castsi256_p
 */
 
 inline __m256 max_ps(__m256 a, __m256 b) { return _mm256_max_ps(a, b); }
+inline m256x2 max_ps(m256x2 a, m256x2 b) { return m256x2{ _mm256_max_ps(a.x, b.x), _mm256_max_ps(a.y, b.y) }; }
+inline m256x3 max_ps(m256x3 a, m256x3 b) { return m256x3{ _mm256_max_ps(a.x, b.x), _mm256_max_ps(a.y, b.y), _mm256_max_ps(a.z, b.z) }; }
+inline m256x4 max_ps(m256x4 a, m256x4 b) { return m256x4{ _mm256_max_ps(a.x, b.x), _mm256_max_ps(a.y, b.y), _mm256_max_ps(a.z, b.z), _mm256_max_ps(a.w, b.w) }; }
+
 inline __m256 min_ps(__m256 a, __m256 b) { return _mm256_min_ps(a, b); }
+inline m256x2 min_ps(m256x2 a, m256x2 b) { return m256x2{ _mm256_min_ps(a.x, b.x), _mm256_min_ps(a.y, b.y) }; }
+inline m256x3 min_ps(m256x3 a, m256x3 b) { return m256x3{ _mm256_min_ps(a.x, b.x), _mm256_min_ps(a.y, b.y), _mm256_min_ps(a.z, b.z) }; }
+inline m256x4 min_ps(m256x4 a, m256x4 b) { return m256x4{ _mm256_min_ps(a.x, b.x), _mm256_min_ps(a.y, b.y), _mm256_min_ps(a.z, b.z), _mm256_min_ps(a.w, b.w) }; }
 
 inline __m256 negate_ps(__m256 a) { return _mm256_xor_ps(a, _mm256_set1_ps(-0.f)); }
+inline m256x2 negate_ps(m256x2 a) { return m256x2{ negate_ps(a.x), negate_ps(a.y) }; }
+inline m256x3 negate_ps(m256x3 a) { return m256x3{ negate_ps(a.x), negate_ps(a.y), negate_ps(a.z) }; }
+inline m256x4 negate_ps(m256x4 a) { return m256x4{ negate_ps(a.x), negate_ps(a.y), negate_ps(a.z), negate_ps(a.w) }; }
+
 inline __m256 abs_ps(__m256 a) { return _mm256_andnot_ps(_mm256_set1_ps(-0.f), a); }
+inline m256x2 abs_ps(m256x2 a) { return m256x2{ abs_ps(a.x), abs_ps(a.y) }; }
+inline m256x3 abs_ps(m256x3 a) { return m256x3{ abs_ps(a.x), abs_ps(a.y), abs_ps(a.z) }; }
+inline m256x4 abs_ps(m256x4 a) { return m256x4{ abs_ps(a.x), abs_ps(a.y), abs_ps(a.z), abs_ps(a.w) }; }
 
 inline __m256 signflip_ps(__m256 a) { return _mm256_xor_ps(_mm256_set1_ps(-0.f), a); }
+inline m256x2 signflip_ps(m256x2 a) { return m256x2{ signflip_ps(a.x), signflip_ps(a.y) }; }
+inline m256x3 signflip_ps(m256x3 a) { return m256x3{ signflip_ps(a.x), signflip_ps(a.y), signflip_ps(a.z) }; }
+inline m256x4 signflip_ps(m256x4 a) { return m256x4{ signflip_ps(a.x), signflip_ps(a.y), signflip_ps(a.z), signflip_ps(a.w) }; }
 
-inline __m256 round_ceil(__m256 a)	  { return _mm256_round_ps(a, _MM_FROUND_CEIL); }
-inline __m256 round_floor(__m256 a)   { return _mm256_round_ps(a, _MM_FROUND_FLOOR); }
+inline __m256 round_ceil(__m256 a) { return _mm256_round_ps(a, _MM_FROUND_CEIL); }
+inline m256x2 round_ceil(m256x2 a) { return m256x2{ round_ceil(a.x), round_ceil(a.y) }; }
+inline m256x3 round_ceil(m256x3 a) { return m256x3{ round_ceil(a.x), round_ceil(a.y), round_ceil(a.z) }; }
+inline m256x4 round_ceil(m256x4 a) { return m256x4{ round_ceil(a.x), round_ceil(a.y), round_ceil(a.z), round_ceil(a.w) }; }
+
+inline __m256 round_floor(__m256 a) { return _mm256_round_ps(a, _MM_FROUND_FLOOR); }
+inline m256x2 round_floor(m256x2 a) { return m256x2{ round_floor(a.x), round_floor(a.y) }; }
+inline m256x3 round_floor(m256x3 a) { return m256x3{ round_floor(a.x), round_floor(a.y), round_floor(a.z) }; }
+inline m256x4 round_floor(m256x4 a) { return m256x4{ round_floor(a.x), round_floor(a.y), round_floor(a.z), round_floor(a.w) }; }
+
 inline __m256 round_nearest(__m256 a) { return _mm256_round_ps(a, _MM_FROUND_NINT); }
+inline m256x2 round_nearest(m256x2 a) { return m256x2{ round_nearest(a.x), round_nearest(a.y) }; }
+inline m256x3 round_nearest(m256x3 a) { return m256x3{ round_nearest(a.x), round_nearest(a.y), round_nearest(a.z) }; }
+inline m256x4 round_nearest(m256x4 a) { return m256x4{ round_nearest(a.x), round_nearest(a.y), round_nearest(a.z), round_nearest(a.w) }; }
 
 inline __m256 fract(__m256 a) { return sub(a, round_floor(a)); }
+inline m256x2 fract(m256x2 a) { return m256x2{ fract(a.x), fract(a.y) }; }
+inline m256x3 fract(m256x3 a) { return m256x3{ fract(a.x), fract(a.y), fract(a.z) }; }
+inline m256x4 fract(m256x4 a) { return m256x4{ fract(a.x), fract(a.y), fract(a.z), fract(a.w) }; }
 
 inline __m256 clamp(__m256 x, __m256 minval, __m256 maxval) { return min_ps(max_ps(x, minval), maxval); }
-inline m256x3 clamp(m256x3 x, m256x3 minval, m256x3 maxval) {
-	return m256x3{
-		clamp(x.x, minval.x, maxval.x),
-		clamp(x.y, minval.y, maxval.y),
-		clamp(x.z, minval.z, maxval.z)
-	};
-}
+inline m256x2 clamp(m256x2 x, m256x2 minval, m256x2 maxval) { return m256x2{ clamp(x.x, minval.x, maxval.x), clamp(x.y, minval.y, maxval.y) }; }
+inline m256x3 clamp(m256x3 x, m256x3 minval, m256x3 maxval) { return m256x3{ clamp(x.x, minval.x, maxval.x), clamp(x.y, minval.y, maxval.y), clamp(x.z, minval.z, maxval.z) }; }
+inline m256x4 clamp(m256x4 x, m256x4 minval, m256x4 maxval) { return m256x4{ clamp(x.x, minval.x, maxval.x), clamp(x.y, minval.y, maxval.y), clamp(x.z, minval.z, maxval.z), clamp(x.w, minval.w, maxval.w) }; }
 
 inline __m256 saturate(__m256 x) { return clamp(x, _mm256_set1_ps(0.f), _mm256_set1_ps(1.f)); }
-inline m256x3 saturate(m256x3 x) {
-	return m256x3{
-		saturate(x.x),
-		saturate(x.y),
-		saturate(x.z)
-	};
-}
+inline m256x2 saturate(m256x2 x) { return m256x2{ saturate(x.x), saturate(x.y) }; }
+inline m256x3 saturate(m256x3 x) { return m256x3{ saturate(x.x), saturate(x.y), saturate(x.z) }; }
+inline m256x4 saturate(m256x4 x) { return m256x4{ saturate(x.x), saturate(x.y), saturate(x.z), saturate(x.w) }; }
 
 inline f32 rcp(f32 a) { return 1.f / a;    } // reciprocal
+
 inline __m256 rcp(__m256 a)   { return _mm256_rcp_ps(a); } // reciprocal
+inline m256x2 rcp(m256x2 a) { return m256x2{ rcp(a.x), rcp(a.y) }; }
+inline m256x3 rcp(m256x3 a) { return m256x3{ rcp(a.x), rcp(a.y), rcp(a.z) }; }
+inline m256x4 rcp(m256x4 a) { return m256x4{ rcp(a.x), rcp(a.y), rcp(a.z), rcp(a.w) }; }
 
 inline __m256 setzero_ps() { return _mm256_setzero_ps(); } // compiles to xor reg reg
+inline m256x2 setzero2_ps() { return m256x2{ _mm256_setzero_ps(), _mm256_setzero_ps() }; }
+inline m256x3 setzero3_ps() { return m256x3{ _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps() }; }
+inline m256x4 setzero4_ps() { return m256x4{ _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps() }; }
 
 /*
 	Shift operators
@@ -264,24 +297,68 @@ inline __m256 setzero_ps() { return _mm256_setzero_ps(); } // compiles to xor re
 	// Some require SVML, and needs MS Visual Studio 2019
 */
 
+inline f32 sroot(f32 a) { return sqrtf(a); } // square root
+inline f32 rsroot(f32 a) { return 1.f / sqrtf(a); } // reciprocal square root
 
 inline __m256 sroot(__m256 a)  { return _mm256_sqrt_ps(a); } // square root
+inline m256x2 sroot(m256x2 a) { return m256x2{ _mm256_sqrt_ps(a.x), _mm256_sqrt_ps(a.y) }; }
+inline m256x3 sroot(m256x3 a) { return m256x3{ _mm256_sqrt_ps(a.x), _mm256_sqrt_ps(a.y), _mm256_sqrt_ps(a.z) }; }
+inline m256x4 sroot(m256x4 a) { return m256x4{ _mm256_sqrt_ps(a.x), _mm256_sqrt_ps(a.y), _mm256_sqrt_ps(a.z), _mm256_sqrt_ps(a.w) }; }
+
 inline __m256 rsroot(__m256 a) { return _mm256_rsqrt_ps(a); } // reciprocal square root
+inline m256x2 rsroot(m256x2 a) { return m256x2{ _mm256_rsqrt_ps(a.x), _mm256_rsqrt_ps(a.y) }; }
+inline m256x3 rsroot(m256x3 a) { return m256x3{ _mm256_rsqrt_ps(a.x), _mm256_rsqrt_ps(a.y), _mm256_rsqrt_ps(a.z) }; }
+inline m256x4 rsroot(m256x4 a) { return m256x4{ _mm256_rsqrt_ps(a.x), _mm256_rsqrt_ps(a.y), _mm256_rsqrt_ps(a.z), _mm256_rsqrt_ps(a.w) }; }
 
 inline __m256 sin_ps(__m256 a) { return _mm256_sin_ps(a); }
+inline m256x2 sin_ps(m256x2 a) { return m256x2{_mm256_sin_ps(a.x), _mm256_sin_ps(a.y) }; }
+inline m256x3 sin_ps(m256x3 a) { return m256x3{ _mm256_sin_ps(a.x), _mm256_sin_ps(a.y), _mm256_sin_ps(a.z) }; }
+inline m256x4 sin_ps(m256x4 a) { return m256x4{ _mm256_sin_ps(a.x), _mm256_sin_ps(a.y), _mm256_sin_ps(a.z), _mm256_sin_ps(a.w) }; }
+
 inline __m256 cos_ps(__m256 a) { return _mm256_cos_ps(a); }
+inline m256x2 cos_ps(m256x2 a) { return m256x2{ _mm256_cos_ps(a.x), _mm256_cos_ps(a.y) }; }
+inline m256x3 cos_ps(m256x3 a) { return m256x3{ _mm256_cos_ps(a.x), _mm256_cos_ps(a.y), _mm256_cos_ps(a.z) }; }
+inline m256x4 cos_ps(m256x4 a) { return m256x4{ _mm256_cos_ps(a.x), _mm256_cos_ps(a.y), _mm256_cos_ps(a.z), _mm256_cos_ps(a.w) }; }
+
 inline __m256 tan_ps(__m256 a) { return _mm256_tan_ps(a); }
+inline m256x2 tan_ps(m256x2 a) { return m256x2{ _mm256_tan_ps(a.x), _mm256_tan_ps(a.y) }; }
+inline m256x3 tan_ps(m256x3 a) { return m256x3{ _mm256_tan_ps(a.x), _mm256_tan_ps(a.y), _mm256_tan_ps(a.z) }; }
+inline m256x4 tan_ps(m256x4 a) { return m256x4{ _mm256_tan_ps(a.x), _mm256_tan_ps(a.y), _mm256_tan_ps(a.z), _mm256_tan_ps(a.w) }; }
+
 inline __m256 asin_ps(__m256 a) { return _mm256_asin_ps(a); }
+inline m256x2 asin_ps(m256x2 a) { return m256x2{ _mm256_asin_ps(a.x), _mm256_asin_ps(a.y) }; }
+inline m256x3 asin_ps(m256x3 a) { return m256x3{ _mm256_asin_ps(a.x), _mm256_asin_ps(a.y), _mm256_asin_ps(a.z) }; }
+inline m256x4 asin_ps(m256x4 a) { return m256x4{ _mm256_asin_ps(a.x), _mm256_asin_ps(a.y), _mm256_asin_ps(a.z), _mm256_asin_ps(a.w) }; }
+
 inline __m256 acos_ps(__m256 a) { return _mm256_acos_ps(a); }
+inline m256x2 acos_ps(m256x2 a) { return m256x2{ _mm256_acos_ps(a.x), _mm256_acos_ps(a.y) }; }
+inline m256x3 acos_ps(m256x3 a) { return m256x3{ _mm256_acos_ps(a.x), _mm256_acos_ps(a.y), _mm256_acos_ps(a.z) }; }
+inline m256x4 acos_ps(m256x4 a) { return m256x4{ _mm256_acos_ps(a.x), _mm256_acos_ps(a.y), _mm256_acos_ps(a.z), _mm256_acos_ps(a.w) }; }
+
 inline __m256 atan_ps(__m256 a) { return _mm256_atan_ps(a); }
+inline m256x2 atan_ps(m256x2 a) { return m256x2{ _mm256_atan_ps(a.x), _mm256_atan_ps(a.y) }; }
+inline m256x3 atan_ps(m256x3 a) { return m256x3{ _mm256_atan_ps(a.x), _mm256_atan_ps(a.y), _mm256_atan_ps(a.z) }; }
+inline m256x4 atan_ps(m256x4 a) { return m256x4{ _mm256_atan_ps(a.x), _mm256_atan_ps(a.y), _mm256_atan_ps(a.z), _mm256_atan_ps(a.w) }; }
+
 inline __m256 atan2_ps(__m256 a, __m256 b) { return _mm256_atan2_ps(a, b); }
+inline m256x2 atan2_ps(m256x2 a, m256x2 b) { return m256x2{ _mm256_atan2_ps(a.x, b.x), _mm256_atan2_ps(a.y, b.y) }; }
+inline m256x3 atan2_ps(m256x3 a, m256x3 b) { return m256x3{ _mm256_atan2_ps(a.x, b.x), _mm256_atan2_ps(a.y, b.y), _mm256_atan2_ps(a.z, b.z) }; }
+inline m256x4 atan2_ps(m256x4 a, m256x4 b) { return m256x4{ _mm256_atan2_ps(a.x, b.x), _mm256_atan2_ps(a.y, b.y), _mm256_atan2_ps(a.z, b.z), _mm256_atan2_ps(a.w, b.w) }; }
 
 inline __m256 exp_ps(__m256 a) { return _mm256_exp_ps(a); }
-inline __m256 log_ps(__m256 a) { return _mm256_log_ps(a); }
-inline __m256 pow_ps(__m256 a, __m256 b) { return _mm256_pow_ps(a, b); }
+inline m256x2 exp_ps(m256x2 a) { return m256x2{ _mm256_exp_ps(a.x), _mm256_exp_ps(a.y) }; }
+inline m256x3 exp_ps(m256x3 a) { return m256x3{ _mm256_exp_ps(a.x), _mm256_exp_ps(a.y), _mm256_exp_ps(a.z) }; }
+inline m256x4 exp_ps(m256x4 a) { return m256x4{ _mm256_exp_ps(a.x), _mm256_exp_ps(a.y), _mm256_exp_ps(a.z), _mm256_exp_ps(a.w) }; }
 
-inline f32 sroot(f32 a) { return sqrtf(a); } // square root
-inline f32 rsroot(f32 a) { return 1.f/sqrtf(a); } // reciprocal square root
+inline __m256 log_ps(__m256 a) { return _mm256_log_ps(a); }
+inline m256x2 log_ps(m256x2 a) { return m256x2{ _mm256_log_ps(a.x), _mm256_log_ps(a.y) }; }
+inline m256x3 log_ps(m256x3 a) { return m256x3{ _mm256_log_ps(a.x), _mm256_log_ps(a.y), _mm256_log_ps(a.z) }; }
+inline m256x4 log_ps(m256x4 a) { return m256x4{ _mm256_log_ps(a.x), _mm256_log_ps(a.y), _mm256_log_ps(a.z), _mm256_log_ps(a.w) }; }
+
+inline __m256 pow_ps(__m256 a, __m256 b) { return _mm256_pow_ps(a, b); }
+inline m256x2 pow_ps(m256x2 a, m256x2 b) { return m256x2{ _mm256_pow_ps(a.x, b.x), _mm256_pow_ps(a.y, b.y) }; }
+inline m256x3 pow_ps(m256x3 a, m256x3 b) { return m256x3{ _mm256_pow_ps(a.x, b.x), _mm256_pow_ps(a.y, b.y), _mm256_pow_ps(a.z, b.z) }; }
+inline m256x4 pow_ps(m256x4 a, m256x4 b) { return m256x4{ _mm256_pow_ps(a.x, b.x), _mm256_pow_ps(a.y, b.y), _mm256_pow_ps(a.z, b.z), _mm256_pow_ps(a.w, b.w) }; }
 
 /*
 	Loads and stores
@@ -303,7 +380,7 @@ inline void maskstore_ps(f32* mem_addr, __m256i mask, __m256 a) { _mm256_masksto
 // Scale ~ size of datatype (?)
 // Gather addresses calculated in bytes
 // each address loads an f32 (4 byte)
-// inline __m256 gather_ps(f32 const* base_addr, __m256i vindex, const i32 scale) { return _mm256_i32gather_ps(base_addr, vindex, scale); }
+ //inline __m256 gather_ps(f32 const* base_addr, __m256i vindex, const i32 scale) { return _mm256_i32gather_ps(base_addr, vindex, scale); }
 // inline __m256 mask_gather_ps(__m256 src, f32 const * base_addr, __m256i vindex, __m256 mask, const i32 scale) { return _mm256_mask_i32gather_ps(src, base_addr, vindex, mask, scale); }
 
 inline __m256 blend_ps(__m256 a, __m256 b, __m256 mask) { return  _mm256_blendv_ps(a, b, mask); }
@@ -314,8 +391,8 @@ inline m256x3 blend3_ps(m256x3 a, m256x3 b, __m256 mask) { return  { _mm256_blen
 inline m256x4 blend4_ps(m256x4 a, m256x4 b, __m256 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask), _mm256_blendv_ps(a.y, b.y, mask), _mm256_blendv_ps(a.z, b.z, mask), _mm256_blendv_ps(a.w, b.w, mask) }; }
 
 
-inline bool any_set(__m256 mask) { return _mm256_movemask_ps(mask) != 0; }
-inline bool all_set(__m256 mask) { return _mm256_movemask_ps(mask) == 0b11111111; }
+inline bool any_set(__m256 mask)  { return _mm256_movemask_ps(mask) != 0; }
+inline bool all_set(__m256 mask)  { return _mm256_movemask_ps(mask) == 0b11111111; }
 inline bool none_set(__m256 mask) { return _mm256_movemask_ps(mask) == 0; }
 
 /*
@@ -471,7 +548,11 @@ inline __m256 operator&&(__m256 u, __m256 v) { return bitwise_and(u, v); }
 inline __m256 operator^(__m256 u, __m256 v) { return bitwise_xor(u, v); }
 inline __m256 operator~(__m256 u) { return bitwise_not(u); }
 inline __m256 operator!(__m256 u) { return bitwise_not(u); }
+
 inline __m256 operator-(__m256 u) { return signflip_ps(u); }
+inline m256x2 operator-(m256x2 u) { return signflip_ps(u); }
+inline m256x3 operator-(m256x3 u) { return signflip_ps(u); }
+inline m256x4 operator-(m256x4 u) { return signflip_ps(u); }
 
 inline __m256& operator|=(__m256& u, __m256 v) { return u = bitwise_or(u, v); }
 inline __m256& operator&=(__m256& u, __m256 v) { return u = bitwise_and(u, v); }
@@ -533,9 +614,11 @@ inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 	//if (k < 0.0) return{ 0.f };
 	m256x3 Result = (ior * v) -  (ior * vdotn + sroot(k)) * n;
 	__m256 RetZeroCond = (k < set1_ps(0.f));
-	Result.x = blend_ps(Result.x, set1_ps(0.f), RetZeroCond);
+	/*Result.x = blend_ps(Result.x, set1_ps(0.f), RetZeroCond);
 	Result.y = blend_ps(Result.y, set1_ps(0.f), RetZeroCond);
-	Result.z = blend_ps(Result.z, set1_ps(0.f), RetZeroCond);
+	Result.z = blend_ps(Result.z, set1_ps(0.f), RetZeroCond);*/
+
+	Result = blend3_ps(Result, set1x3_ps(0.f, 0.f, 0.f), RetZeroCond);
 	return Result;
 }
 

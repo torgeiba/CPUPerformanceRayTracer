@@ -19,12 +19,12 @@
 
 #include "rendering.h"
 
-#include "demofox_path_tracing_scalar.h"
-#include "demofox_path_tracing_scalar_branchless.h"
+//#include "demofox_path_tracing_scalar.h"
+//#include "demofox_path_tracing_scalar_branchless.h"
 //#include "demofox_path_tracing_simt.h"
 //#include "demofox_path_tracing_simt_textured.h"
 //#include "demofox_path_tracing_v3_redo.h"
-#include "demofox_path_tracing_optimization_v1.h"
+#include "demofox_path_tracing_optimization_v2.h"
 
 // Global instance
 ApplicationState App;
@@ -111,16 +111,10 @@ texture Texture;
 
 #include "intrinsic_utils.h"
 
+static f64 RenderTime_inner = 0; // Used to time the inner rendering function (excluding the copy out from rendertarget)
+
 void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 {
-	// TODO remove
-	/*for (u32 i = 0; i < 127; i++)
-	{
-		u32 n = RoundUpToPowerOfTwo(i);
-
-		std::cout << n << std::endl;
-	}*/
-
 
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\Delta_2k.hdr";
 	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
@@ -227,7 +221,8 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 				std::string("FrameTime: ") + std::to_string(TimeSeconds * 1000.) +
 				" ms, Sync: " + std::to_string(SyncTimeSeconds * 1000.) +
 				" ms, MsgProcess: " + std::to_string(MsgTimeSeconds * 1000.) +
-				" ms, Render: " + std::to_string(RenderTimeSeconds * 1000.) +
+				" ms, Render (inner): " + std::to_string(/*RenderTimeSeconds*/ RenderTime_inner * 1000.) +
+				" ms, Render (total): " + std::to_string(RenderTimeSeconds * 1000.) +
 				" ms, Present: " + std::to_string(PresentTimeSeconds * 1000.) + " ms"
 				//+ ". X: " + std::to_string(MouseCoords.XPos) + ", Y: " + std::to_string(MouseCoords.YPos)
 				;
@@ -274,7 +269,9 @@ void ApplicationState::Render()
 	i32 NumTilesY = 4 * 8;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderOptV1(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+	f64 PerfRenderStart_inner = GetPerformanceCounter();
+	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+	RenderTime_inner = GetPerformanceCounterIntervalSeconds(PerfRenderStart_inner, GetPerformanceCounter());
 	//DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
 
 	f32 c_exposure = 1.;

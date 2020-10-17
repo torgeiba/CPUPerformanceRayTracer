@@ -135,10 +135,8 @@ m256x3 EquirectangularTextureSampleGather(texture texture, m256x3 Directions)
 		
 		uvs *= invAtan;
 		uvs = uvs + 0.5f;
-		uvs.x -= round_floor(uvs.x);
-		uvs.y -= round_floor(uvs.y);
-		uvs.x = saturate(uvs.x);
-		uvs.y = saturate(uvs.y);
+		uvs -= round_floor(uvs);
+		uvs = saturate(uvs);
 		__m256i Rows = _mm256_cvtps_epi32(uvs.y * ((f32)texture.Height-1));
 		__m256i Cols = _mm256_cvtps_epi32(uvs.x * ((f32)texture.Width-1));
 		m256x3 rgb = TexelFetchGather(texture, Rows, Cols);
@@ -161,10 +159,8 @@ m256x3 EquirectangularTextureSampleBilinear(texture texture, m256x3 Directions)
 
 		uvs *= invAtan;
 		uvs = uvs + 0.5f;
-		uvs.x -= round_floor(uvs.x);
-		uvs.y -= round_floor(uvs.y);
-		uvs.x = saturate(uvs.x);
-		uvs.y = saturate(uvs.y);
+		uvs -= round_floor(uvs);
+		uvs = saturate(uvs);
 		m256x3 rgb = TexelSampleBilinear(texture, uvs);
 		Result = rgb;
 	}

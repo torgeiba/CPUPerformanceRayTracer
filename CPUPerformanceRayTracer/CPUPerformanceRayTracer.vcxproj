@@ -100,10 +100,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <StringPooling>true</StringPooling>
       <CallingConvention>VectorCall</CallingConvention>
       <OpenMPSupport>false</OpenMPSupport>
@@ -120,6 +120,7 @@
     <ClCompile Include="asset_loading.cpp" />
     <ClCompile Include="demofox_path_tracing.cpp" />
     <ClCompile Include="demofox_path_tracing_optimization_v1.cpp" />
+    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar_branchless.cpp" />
     <ClCompile Include="demofox_path_tracing_simd.cpp" />
@@ -144,6 +145,7 @@
     <ClInclude Include="asset_loading.h" />
     <ClInclude Include="demofox_path_tracing.h" />
     <ClInclude Include="demofox_path_tracing_optimization_v1.h" />
+    <ClInclude Include="demofox_path_tracing_optimization_v2.h" />
     <ClInclude Include="demofox_path_tracing_scalar.h" />
     <ClInclude Include="demofox_path_tracing_scalar_branchless.h" />
     <ClInclude Include="demofox_path_tracing_simd.h" />
