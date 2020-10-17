@@ -36,11 +36,11 @@ static f32 iFrame = 0.f;
 static
 __m256i wang_hash_ps(__m256i& seeds)
 {
-    seeds = _mm256_xor_si256(_mm256_xor_si256(seeds, _mm256_set1_epi32(61)), (_mm256_srli_epi32(seeds, 16)));
-    seeds = _mm256_mullo_epi32(seeds, _mm256_set1_epi32(9));
-    seeds = _mm256_xor_si256(seeds, _mm256_srli_epi32(seeds, 4));
-    seeds = _mm256_mullo_epi32(seeds, _mm256_set1_epi32(0x27d4eb2d));
-    seeds = _mm256_xor_si256(seeds, _mm256_srli_epi32(seeds, 15));
+    seeds = (seeds ^ 61) ^ (seeds >> 16);
+    seeds = seeds * 9;
+    seeds = seeds ^ (seeds >> 4);
+    seeds = seeds * 0x27d4eb2d;
+    seeds = seeds ^ (seeds >> 15);
     return seeds;
 }
 
@@ -48,11 +48,11 @@ __m256i wang_hash_ps(__m256i& seeds)
 // https://stackoverflow.com/questions/34066228/how-to-perform-uint32-float-conversion-with-sse
 static inline __m256 _mm_cvtepu32_ps(const __m256i v)
 {
-    __m256i v2 = _mm256_srli_epi32(v, 1);                    // v2 = v / 2
-    __m256i v1 = _mm256_and_si256(v, _mm256_set1_epi32(1));  // v1 = v & 1
-    __m256 v2f = _mm256_cvtepi32_ps(v2);
-    __m256 v1f = _mm256_cvtepi32_ps(v1);
-    return _mm256_add_ps(_mm256_add_ps(v2f, v2f), v1f);      // return 2 * v2 + v1
+    __m256i v2 = v >> 1;                    // v2 = v / 2
+    __m256i v1 = v & 1;  // v1 = v & 1
+    __m256 v2f = to_ps(v2);
+    __m256 v1f = to_ps(v1);
+    return v2f + v2f + v1f;      // return 2 * v2 + v1
 }
 
 static
@@ -63,13 +63,13 @@ __m256 Randomf3201_ps(__m256i& state)
     //return _mm_cvtepu32_ps(wang_hash_ps(state)) / 4294967296.0f;
 
     // faster but possibly fewer states version, the point is to not have 1 integer codepoint of bias due to there being more negative numbers than positive in signed integer
-    return _mm256_cvtepi32_ps(_mm256_and_si256(_mm256_set1_epi32(0x7FFFFFFF), wang_hash_ps(state))) / 2147483648.0f;
+    return to_ps(0x7FFFFFFF & wang_hash_ps(state)) / 2147483648.0f;
 }
 
 static
 __m256 SignedRandomf3201_ps(__m256i& state)
 {
-    return _mm256_cvtepi32_ps(wang_hash_ps(state)) / 2147483648.0f;
+    return to_ps(wang_hash_ps(state)) / 2147483648.0f;
 }
 
 static
@@ -635,14 +635,14 @@ void TestSceneTrace(Scene& scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hit
     for (i32 quadIndex = 0; quadIndex < scene.NumQuadObjects; quadIndex++)
     {
         __m256 cond = (!(hasTraceTerminated) && (TestQuadTrace(rayPos, rayDir, hitInfo, scene.QuadObjects[quadIndex])));
-        hitInfo.materialIndex = _mm256_blendv_epi8(hitInfo.materialIndex, _mm256_set1_epi32(objectIndex), _mm256_castps_si256(cond));
+        hitInfo.materialIndex = blend_epi(hitInfo.materialIndex, set1_epi(objectIndex), bitcast_epi(cond));
         objectIndex++;
     }
 
     for (i32 sphereIndex = 0; sphereIndex < scene.NumSphereObjects; sphereIndex++)
     {
         __m256 cond = (!(hasTraceTerminated) && (TestSphereTrace(rayPos, rayDir, hitInfo, scene.SphereObjects[sphereIndex].PositionAndRadius)));
-        hitInfo.materialIndex = _mm256_blendv_epi8(hitInfo.materialIndex, _mm256_set1_epi32(objectIndex), _mm256_castps_si256(cond));
+        hitInfo.materialIndex = blend_epi(hitInfo.materialIndex, set1_epi(objectIndex), bitcast_epi(cond));
         objectIndex++;
     }
 
@@ -801,15 +801,12 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, texture& Texture)
 {
     // initialize a random number state based on frag coord and frame
-    //u32 rngState = u32(u32(fragCoord.x.m256_f32[0]) * u32(1973) + u32(fragCoord.y.m256_f32[0]) * u32(9277) + u32(iFrame) * u32(26699)) | u32(1);
-    __m256i rngState_epi =
-        _mm256_or_si256(
-            _mm256_add_epi32(
-                _mm256_add_epi32(
-                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.x), _mm256_set1_epi32((u32)1973)),
-                    _mm256_mullo_epi32(_mm256_cvtps_epi32(fragCoord.y), _mm256_set1_epi32((u32)9277))),
-                _mm256_mullo_epi32(_mm256_set1_epi32((u32)iFrame), _mm256_set1_epi32((u32)26699))),
-            _mm256_set1_epi32((u32)1)
+
+    __m256i rngState_epi = 1 |
+        (
+            to_epi32(fragCoord.x) * 1973 +
+            to_epi32(fragCoord.y) * 9277 +
+            i32(iFrame) * 26699
         );
 
     // The ray starts at the camera position (the origin)
@@ -920,7 +917,7 @@ static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInf
 
     f32 c_exposure = 1.;
 
-    __m256i ByteMask = _mm256_set1_epi32(0xFF);
+    __m256i ByteMask = set1_epi(0xFF);
     i32 TileSize = TileHeight * TileWidth * 3;
     i32 TileX = TileInfo.TileX;
     {
@@ -952,10 +949,10 @@ static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInf
 
 
                     // Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
-                    __m256i Rint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.x), ByteMask), 16);
-                    __m256i Gint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.y), ByteMask), 8);
-                    __m256i Bint = _mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.z), ByteMask);
-                    __m256i RGBint = _mm256_or_si256(_mm256_or_si256(Rint, Gint), Bint);
+                    __m256i Rint = (to_epi32(ClampedFrameColor.x) & ByteMask) << 16;
+                    __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
+                    __m256i Bint = to_epi32(ClampedFrameColor.z) & ByteMask;
+                    __m256i RGBint = Rint | Gint | Bint;
 
                     __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)Width + (u64)X));
                     *Pixels = RGBint;
@@ -992,14 +989,6 @@ static WORK_QUEUE_CALLBACK(DoWorkerThreadWork) // test callback function
 }
 
 static work_queue* Queue;
-
-
-
-//i32 AddMaterialToScene(Scene& ScenePtr, SMaterialInfo NewMaterial)
-//{
-//    scene.Materials[scene.NumMaterials++] = NewMaterial;
-//    return scene.NumMaterials;
-//}
 
 i32 AddMaterialToScene(Scene& scene, SceneMaterial material)
 {

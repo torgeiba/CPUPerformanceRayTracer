@@ -27,6 +27,7 @@
 #include "demofox_path_tracing_optimization_v2.h"
 
 #define USE_VSYNC 1
+#define SHOW_FRAMETIMES 1
 
 // Global instance
 ApplicationState App;
@@ -206,11 +207,14 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 
 	while (Running)
 	{
+#if SHOW_FRAMETIMES
 		PerfSyncEnd = GetPerformanceCounter();
 		f64 SyncTimeSeconds = GetPerformanceCounterIntervalSeconds(PerfSyncStart, PerfSyncEnd);
+#endif
 		HasRenderedThisFrame = false;
 
 		// Compute framerate
+#if SHOW_FRAMETIMES
 		if (FrameCount % 30 == 0)
 		{
 			i64 PerfPreviousFrameStart = PerfFrameStart;
@@ -231,25 +235,41 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 
 			SetWindowTextA(Window, fps_str.c_str());
 		}
+#endif
 
+#if SHOW_FRAMETIMES
 		PerfMsgStart = GetPerformanceCounter();
+#endif
 			RunMessageLoop();
-		MsgTimeSeconds = GetPerformanceCounterIntervalSeconds(PerfMsgStart, GetPerformanceCounter());
 
+#if SHOW_FRAMETIMES
+		MsgTimeSeconds = GetPerformanceCounterIntervalSeconds(PerfMsgStart, GetPerformanceCounter());
+#endif
+
+#if SHOW_FRAMETIMES
 		PerfRenderStart = GetPerformanceCounter();
+#endif
 			Render();
+#if SHOW_FRAMETIMES
 		RenderTimeSeconds = GetPerformanceCounterIntervalSeconds(PerfRenderStart, GetPerformanceCounter());
+#endif
 
 		// Present
+#if SHOW_FRAMETIMES
 		PerfPresentStart = GetPerformanceCounter();
+#endif
 			Win32DisplayBufferInWindow(&BackBuffer, DeviceContext, CurrentWindowWidth, CurrentWindowHeight);
+#if SHOW_FRAMETIMES
 		PresentTimeSeconds = GetPerformanceCounterIntervalSeconds(PerfPresentStart, GetPerformanceCounter());
+#endif
 
 		// Util counters
 		FrameCount++;
 		AggregateFrames++;
 		// Refreshrate sync
+#if SHOW_FRAMETIMES
 		PerfSyncStart = GetPerformanceCounter();
+#endif
 
 #if USE_VSYNC
 		DwmFlush();
@@ -277,54 +297,7 @@ void ApplicationState::Render()
 	i64 PerfRenderStart_inner = GetPerformanceCounter();
 	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
 	RenderTime_inner = GetPerformanceCounterIntervalSeconds(PerfRenderStart_inner, GetPerformanceCounter());
-	//DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
 
-	//f32 c_exposure = 1.;
-
-	//__m256i ByteMask = _mm256_set1_epi32(0xFF);
-	//i32 TileSize = TileHeight * TileWidth * 3;
-	//for (i32 TileX = 0; TileX < NumTilesX; TileX++)
-	//{
-	//	i32 TileMinX = TileX * TileWidth;
-	//	i32 TileMaxX = TileMinX + (TileWidth - 1);
-	//	i32 TileXOffset = TileSize * TileX;
-	//	for (i32 TileY = 0; TileY < NumTilesY; TileY++)
-	//	{
-	//		i32 TileMinY = TileY * TileHeight;
-	//		i32 TileMaxY = TileMinY + (TileHeight - 1);
-	//		i32 TileYOffset = TileY * TileHeight * Width * 3;
-
-	//		i32 BufferTileOffset = TileXOffset + TileYOffset;
-
-	//		f32* BufferPos = RenderTarget + BufferTileOffset;
-
-	//		for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
-	//		{
-	//			for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
-	//			{
-	//				f32* R = &BufferPos[0];
-	//				f32* G = &BufferPos[1 * LANE_COUNT];
-	//				f32* B = &BufferPos[2 * LANE_COUNT];
-
-	//				m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
-	//				FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
-
-	//				m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
-
-
-	//				// Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
-	//				__m256i Rint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.x), ByteMask), 16);
-	//				__m256i Gint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.y), ByteMask), 8);
-	//				__m256i Bint = _mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.z), ByteMask);
-	//				__m256i RGBint = _mm256_or_si256(_mm256_or_si256(Rint, Gint), Bint);
-
-	//				__m256i* Pixels = (__m256i*)((i32*)(Buffer->Memory) + ((u64)Y * (u64)Width + (u64)X));
-	//				*Pixels = RGBint;
-	//				BufferPos += LANE_COUNT * 3;
-	//			}
-	//		}
-	//	}
-	//}
 	HasRenderedThisFrame = true;
 }
 

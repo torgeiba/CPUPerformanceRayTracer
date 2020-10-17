@@ -14,23 +14,23 @@ f32x3 TexelFetch(texture texture, i32 Row, i32 Col)
 
 static inline m256x3 GatherRGB(const f32* const base_addr, __m256i Indices)
 {
-	__m256i GreenChannelOffset = _mm256_set1_epi32(1);
-	__m256i BlueChannelOffset = _mm256_set1_epi32(2);
+	__m256i GreenChannelOffset = set1_epi(1);
+	__m256i BlueChannelOffset =  set1_epi(2);
 	m256x3 Result = m256x3
 	{
 		_mm256_i32gather_ps(base_addr, Indices, 4),
-		_mm256_i32gather_ps(base_addr, _mm256_add_epi32(Indices, GreenChannelOffset), 4),
-		_mm256_i32gather_ps(base_addr, _mm256_add_epi32(Indices, BlueChannelOffset), 4)
+		_mm256_i32gather_ps(base_addr, Indices + GreenChannelOffset, 4),
+		_mm256_i32gather_ps(base_addr, Indices + BlueChannelOffset, 4)
 	};
 	return Result;
 }
 
 m256x3 TexelFetchGather(texture texture, __m256i Rows, __m256i Cols)
 {
-	__m256i RowOffset     = _mm256_mullo_epi32(Rows, _mm256_set1_epi32(texture.Width));
-	__m256i PixelOffsets  = _mm256_add_epi32(Cols, RowOffset);
-	__m256i NumComponents = _mm256_set1_epi32(texture.Components);
-	__m256i Indices       = _mm256_mullo_epi32(NumComponents, PixelOffsets);
+	__m256i RowOffset     = Rows * texture.Width;
+	__m256i PixelOffsets  = Cols + RowOffset;
+	__m256i NumComponents = set1_epi(texture.Components);
+	__m256i Indices       = NumComponents * PixelOffsets;
 	m256x3 Result = GatherRGB(texture.Data, Indices);
 	return Result;
 }
@@ -38,8 +38,8 @@ m256x3 TexelFetchGather(texture texture, __m256i Rows, __m256i Cols)
 m256x3 TexelSampleBilinear(texture texture, m256x2 UVs)
 {
 	const i32 scale = sizeof(f32);
-	__m256i GreenChannelOffset = _mm256_set1_epi32(1);
-	__m256i BlueChannelOffset = _mm256_set1_epi32(2);
+	__m256i GreenChannelOffset = set1_epi(1);
+	__m256i BlueChannelOffset =  set1_epi(2);
 	const f32* const base_addr = (f32*)texture.Data;
 
 	__m256 Row = UVs.y * (f32)(texture.Height - 1);
@@ -52,10 +52,10 @@ m256x3 TexelSampleBilinear(texture texture, m256x2 UVs)
 	__m256 dV = Row - Row0;
 	__m256 dU = Col - Col0;
 
-	__m256i I00 = _mm256_cvtps_epi32(3.0f * (Col0 + Row0 * (f32)(texture.Width)));
-	__m256i I10 = _mm256_cvtps_epi32(3.0f * (Col1 + Row0 * (f32)(texture.Width)));
-	__m256i I01 = _mm256_cvtps_epi32(3.0f * (Col0 + Row1 * (f32)(texture.Width)));
-	__m256i I11 = _mm256_cvtps_epi32(3.0f * (Col1 + Row1 * (f32)(texture.Width)));
+	__m256i I00 = to_epi32(3.0f * (Col0 + Row0 * (f32)(texture.Width)));
+	__m256i I10 = to_epi32(3.0f * (Col1 + Row0 * (f32)(texture.Width)));
+	__m256i I01 = to_epi32(3.0f * (Col0 + Row1 * (f32)(texture.Width)));
+	__m256i I11 = to_epi32(3.0f * (Col1 + Row1 * (f32)(texture.Width)));
 
 	m256x3 C00 = GatherRGB(base_addr, I00);
 	m256x3 C10 = GatherRGB(base_addr, I10);
@@ -137,8 +137,8 @@ m256x3 EquirectangularTextureSampleGather(texture texture, m256x3 Directions)
 		uvs = uvs + 0.5f;
 		uvs -= round_floor(uvs);
 		uvs = saturate(uvs);
-		__m256i Rows = _mm256_cvtps_epi32(uvs.y * ((f32)texture.Height-1));
-		__m256i Cols = _mm256_cvtps_epi32(uvs.x * ((f32)texture.Width-1));
+		__m256i Rows = to_epi32(uvs.y * ((f32)texture.Height-1));
+		__m256i Cols = to_epi32(uvs.x * ((f32)texture.Width-1));
 		m256x3 rgb = TexelFetchGather(texture, Rows, Cols);
 		Result = rgb;
 	}
@@ -206,8 +206,8 @@ void BilinearResampleRGB32(i32 InWidth, i32 InHeight, i32 OutWidth, i32 OutHeigh
 {
 	__m256 UOffsets = _mm256_setr_ps(0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f);
 
-	__m256i GreenChannelOffset = _mm256_set1_epi32(8);
-	__m256i BlueChannelOffset  = _mm256_set1_epi32(16);
+	__m256i GreenChannelOffset = set1_epi(8);
+	__m256i BlueChannelOffset  = set1_epi(16);
 
 	for (i32 OutRow = 0; OutRow < OutHeight; OutRow++)
 	{
@@ -222,10 +222,10 @@ void BilinearResampleRGB32(i32 InWidth, i32 InHeight, i32 OutWidth, i32 OutHeigh
 			__m256 U0 = round_floor(U * (f32)InWidth);
 			__m256 U1 = round_floor(U * (f32)InWidth + 1.f);
 
-			__m256i I00 = _mm256_cvtps_epi32(U0 + V0 * (f32)(InWidth-1));
-			__m256i I10 = _mm256_cvtps_epi32(U1 + V0 * (f32)(InWidth-1));
-			__m256i I01 = _mm256_cvtps_epi32(U0 + V1 * (f32)(InWidth-1));
-			__m256i I11 = _mm256_cvtps_epi32(U1 + V1 * (f32)(InWidth-1));
+			__m256i I00 = to_epi32(U0 + V0 * (f32)(InWidth-1));
+			__m256i I10 = to_epi32(U1 + V0 * (f32)(InWidth-1));
+			__m256i I01 = to_epi32(U0 + V1 * (f32)(InWidth-1));
+			__m256i I11 = to_epi32(U1 + V1 * (f32)(InWidth-1));
 
 			const i32 scale = sizeof(f32);
 			const f32 * const base_addr = (f32*)InBuffer;

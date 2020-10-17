@@ -628,3 +628,74 @@ inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 // set / broadcast for vector component types, m256x3 etc
 // conditional move based on mask for vector component types
 
+
+/*
+
+	Integer intrinsics
+
+*/
+inline __m256i set1_epi(i32 a) { return _mm256_set1_epi32(a); }
+
+inline __m256i xor(__m256i a, __m256i b) { return _mm256_xor_si256(a, b); }
+inline __m256i or (__m256i a, __m256i b) { return  _mm256_or_si256(a, b); }
+inline __m256i and(__m256i a, __m256i b) { return _mm256_and_si256(a, b); }
+
+inline __m256i xor (__m256i a, i32 b) { return _mm256_xor_si256(a, set1_epi(b)); }
+inline __m256i or  (__m256i a, i32 b) { return  _mm256_or_si256(a, set1_epi(b)); }
+inline __m256i and (__m256i a, i32 b) { return _mm256_and_si256(a, set1_epi(b)); }
+
+inline __m256i xor (i32 a, __m256i b) { return _mm256_xor_si256(set1_epi(a), b); }
+inline __m256i or  (i32 a, __m256i b) { return  _mm256_or_si256(set1_epi(a), b); }
+inline __m256i and (i32 a, __m256i b) { return _mm256_and_si256(set1_epi(a), b); }
+
+inline __m256i operator^(__m256i u, __m256i v) { return xor(u, v); }
+inline __m256i operator|(__m256i u, __m256i v) { return or(u, v); }
+inline __m256i operator&(__m256i u, __m256i v) { return and(u, v); }
+
+inline __m256i operator^(__m256i u, i32 v) { return xor (u, v); }
+inline __m256i operator|(__m256i u, i32 v) { return or (u, v); }
+inline __m256i operator&(__m256i u, i32 v) { return and (u, v); }
+
+inline __m256i operator^(i32 u, __m256i v) { return xor (u, v); }
+inline __m256i operator|(i32 u, __m256i v) { return or (u, v); }
+inline __m256i operator&(i32 u, __m256i v) { return and (u, v); }
+
+inline __m256i mul (__m256i a, __m256i b) { return _mm256_mullo_epi32(a, b); }
+inline __m256i div(__m256i a, __m256i b) { return _mm256_div_epi32(a, b); }
+inline __m256i add(__m256i a, __m256i b) { return _mm256_add_epi32(a, b); }
+inline __m256i sub(__m256i a, __m256i b) { return _mm256_sub_epi32(a, b); }
+
+inline __m256i mul(__m256i a, i32 b) { return _mm256_mullo_epi32(a, set1_epi(b)); }
+inline __m256i div(__m256i a, i32 b) { return   _mm256_div_epi32(a, set1_epi(b)); }
+inline __m256i add(__m256i a, i32 b) { return   _mm256_add_epi32(a, set1_epi(b)); }
+inline __m256i sub(__m256i a, i32 b) { return   _mm256_sub_epi32(a, set1_epi(b)); }
+
+inline __m256i mul(i32 a, __m256i b) { return _mm256_mullo_epi32(set1_epi(a), b); }
+inline __m256i div(i32 a, __m256i b) { return   _mm256_div_epi32(set1_epi(a), b); }
+inline __m256i add(i32 a, __m256i b) { return   _mm256_add_epi32(set1_epi(a), b); }
+inline __m256i sub(i32 a, __m256i b) { return   _mm256_sub_epi32(set1_epi(a), b); }
+
+inline __m256i operator+(__m256i u, __m256i v) { return add(u, v); }
+inline __m256i operator-(__m256i u, __m256i v) { return sub(u, v); }
+inline __m256i operator*(__m256i u, __m256i v) { return mul(u, v); }
+inline __m256i operator/(__m256i u, __m256i v) { return div(u, v); }
+inline __m256i operator+(__m256i u, i32 v) { return add(u, v); }
+inline __m256i operator-(__m256i u, i32 v) { return sub(u, v); }
+inline __m256i operator*(__m256i u, i32 v) { return mul(u, v); }
+inline __m256i operator/(__m256i u, i32 v) { return div(u, v); }
+inline __m256i operator+(i32 u, __m256i v) { return add(u, v); }
+inline __m256i operator-(i32 u, __m256i v) { return sub(u, v); }
+inline __m256i operator*(i32 u, __m256i v) { return mul(u, v); }
+inline __m256i operator/(i32 u, __m256i v) { return div(u, v); }
+
+inline __m256i srli(__m256i a, const int imm8) { return _mm256_srli_epi32(a, imm8); }
+inline __m256i slli(__m256i a, const int imm8) { return _mm256_slli_epi32(a, imm8); }
+
+inline __m256i operator>>(__m256i u, const int imm8) { return srli(u, imm8); }
+inline __m256i operator<<(__m256i u, const int imm8) { return slli(u, imm8); }
+
+inline __m256i blend_epi(__m256i a, __m256i b, __m256i mask) { return _mm256_blendv_epi8(a, b, mask); }
+
+inline __m256i bitcast_epi(__m256 a) { return _mm256_castps_si256(a); }
+inline __m256i to_epi32(__m256 a) { return _mm256_cvtps_epi32(a); };
+inline __m256 to_ps(__m256i a) { return _mm256_cvtepi32_ps(a); };
