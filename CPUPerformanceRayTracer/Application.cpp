@@ -26,6 +26,8 @@
 //#include "demofox_path_tracing_v3_redo.h"
 #include "demofox_path_tracing_optimization_v2.h"
 
+#define USE_VSYNC 1
+
 // Global instance
 ApplicationState App;
 
@@ -248,7 +250,10 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 		AggregateFrames++;
 		// Refreshrate sync
 		PerfSyncStart = GetPerformanceCounter();
+
+#if USE_VSYNC
 		DwmFlush();
+#endif
 	}
 	// Main app loop end
 
@@ -269,53 +274,57 @@ void ApplicationState::Render()
 	i32 NumTilesY = 4 * 8;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	f64 PerfRenderStart_inner = GetPerformanceCounter();
-	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
+	i64 PerfRenderStart_inner = GetPerformanceCounter();
+	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
 	RenderTime_inner = GetPerformanceCounterIntervalSeconds(PerfRenderStart_inner, GetPerformanceCounter());
 	//DemofoxRenderV3Redo(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture);
 
-	f32 c_exposure = 1.;
+	//f32 c_exposure = 1.;
 
-	auto clamp = [](f32 x, f32 a, f32 b) { return (x < a) ? a : (x > b ? b : x); };
-	for (i32 TileX = 0; TileX < NumTilesX; TileX++)
-	{
-		i32 TileMinX = TileX * TileWidth;
-		i32 TileMaxX = TileMinX + (TileWidth - 1);
-		for (i32 TileY = 0; TileY < NumTilesY; TileY++)
-		{
-			i32 TileMinY = TileY * TileHeight;
-			i32 TileMaxY = TileMinY + (TileHeight - 1);
+	//__m256i ByteMask = _mm256_set1_epi32(0xFF);
+	//i32 TileSize = TileHeight * TileWidth * 3;
+	//for (i32 TileX = 0; TileX < NumTilesX; TileX++)
+	//{
+	//	i32 TileMinX = TileX * TileWidth;
+	//	i32 TileMaxX = TileMinX + (TileWidth - 1);
+	//	i32 TileXOffset = TileSize * TileX;
+	//	for (i32 TileY = 0; TileY < NumTilesY; TileY++)
+	//	{
+	//		i32 TileMinY = TileY * TileHeight;
+	//		i32 TileMaxY = TileMinY + (TileHeight - 1);
+	//		i32 TileYOffset = TileY * TileHeight * Width * 3;
 
-			i32 TileSize = TileHeight * TileWidth * 3;
-			i32 TileYOffset = TileY * TileHeight * Width * 3;
-			i32 TileXOffset = TileSize * TileX;
-			i32 BufferTileOffset = TileXOffset + TileYOffset;
+	//		i32 BufferTileOffset = TileXOffset + TileYOffset;
 
-			f32* BufferPos = RenderTarget + BufferTileOffset;
+	//		f32* BufferPos = RenderTarget + BufferTileOffset;
 
-			for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
-			{
-				for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
-				{
-					f32* R = &BufferPos[0];
-					f32* G = &BufferPos[1 * LANE_COUNT];
-					f32* B = &BufferPos[2 * LANE_COUNT];
+	//		for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
+	//		{
+	//			for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
+	//			{
+	//				f32* R = &BufferPos[0];
+	//				f32* G = &BufferPos[1 * LANE_COUNT];
+	//				f32* B = &BufferPos[2 * LANE_COUNT];
 
-					m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
-					FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
-					u32* Pixel = (u32*)(Buffer->Memory) + ((u64)Y * (u64)Width + (u64)X);
-					for (u32 Z = 0; Z < LANE_COUNT; Z++)
-					{
-						u8 R = (u8)((i32)(clamp(FrameColor.x.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
-						u8 G = (u8)((i32)(clamp(FrameColor.y.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
-						u8 B = (u8)((i32)(clamp(FrameColor.z.m256_f32[Z], 0.f, 1.f) * 255) & 0xFF);
-						Pixel[Z] = (((u32)R) << 16) | (((u32)G) << 8) | (u32)B | 0;
-					}
-					BufferPos += LANE_COUNT * 3;
-				}
-			}
-		}
-	}
+	//				m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+	//				FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
+
+	//				m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
+
+
+	//				// Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
+	//				__m256i Rint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.x), ByteMask), 16);
+	//				__m256i Gint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.y), ByteMask), 8);
+	//				__m256i Bint = _mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.z), ByteMask);
+	//				__m256i RGBint = _mm256_or_si256(_mm256_or_si256(Rint, Gint), Bint);
+
+	//				__m256i* Pixels = (__m256i*)((i32*)(Buffer->Memory) + ((u64)Y * (u64)Width + (u64)X));
+	//				*Pixels = RGBint;
+	//				BufferPos += LANE_COUNT * 3;
+	//			}
+	//		}
+	//	}
+	//}
 	HasRenderedThisFrame = true;
 }
 

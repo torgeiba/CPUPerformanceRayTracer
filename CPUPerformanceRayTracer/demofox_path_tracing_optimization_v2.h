@@ -6,7 +6,8 @@
 #include "texture.h"
 
 void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
-    texture Texture
+    texture Texture,
+    void* ScreenBufferData
 );
 
 m256x3 ACESFilm(m256x3 X);

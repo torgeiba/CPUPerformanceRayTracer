@@ -102,6 +102,16 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 
 // ACES tone mapping curve fit to go from HDR to LDR
 //https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+//m256x3 ACESFilm(m256x3 X)
+//{
+//    f32 a = 2.51f;
+//    f32 b = 0.03f;
+//    f32 c = 2.43f;
+//    f32 d = 0.59f;
+//    f32 e = 0.14f;
+//    return clamp((X * (a * X + b)) / (X * (c * X + d) + e), set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+//}
+
 m256x3 ACESFilm(m256x3 X)
 {
     f32 a = 2.51f;
@@ -109,12 +119,12 @@ m256x3 ACESFilm(m256x3 X)
     f32 c = 2.43f;
     f32 d = 0.59f;
     f32 e = 0.14f;
-    return clamp((X * (a * X + b)) / (X * (c * X + d) + e), set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+    return saturate((X * (a * X + b)) / (X * (c * X + d) + e));
 }
 
 m256x3 LinearToSRGB(m256x3 rgb)
 {
-    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+    rgb = saturate(rgb);
 
     return m256x3{
         blend_ps(pow_ps(rgb.x, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.x * 12.92f, rgb.x < set1_ps(0.0031308f)),
@@ -125,7 +135,7 @@ m256x3 LinearToSRGB(m256x3 rgb)
 
 m256x3 SRGBToLinear(m256x3 rgb)
 {
-    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
+    rgb = saturate(rgb);
 
     return m256x3{
         blend_ps(pow_ps((rgb.x + 0.055f) / 1.055f, set1_ps(2.4f)), rgb.x / 12.92f, rgb.x < set1_ps(0.04045f)),

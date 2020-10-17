@@ -894,13 +894,76 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
 
             color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
 
+#if 0
             non_temporal_store(R, color.x);
             non_temporal_store(G, color.y);
             non_temporal_store(B, color.z);
+#else
+            store_ps(R, color.x);
+            store_ps(G, color.y);
+            store_ps(B, color.z);
+#endif
             BufferPos += LANE_COUNT * 3;
         }
     }
+}
 
+static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, void* ScreenBufferData)
+{
+    i32 Width = BufferInfo.BufferWidth;
+    i32 Height = BufferInfo.BufferHeight;
+
+    f32* RenderTarget = BufferInfo.BufferDataPtr;
+
+    i32 TileWidth = TileInfo.TileWidth;
+    i32 TileHeight = TileInfo.TileHeight;
+
+    f32 c_exposure = 1.;
+
+    __m256i ByteMask = _mm256_set1_epi32(0xFF);
+    i32 TileSize = TileHeight * TileWidth * 3;
+    i32 TileX = TileInfo.TileX;
+    {
+        i32 TileMinX = TileInfo.TileMinX;
+        i32 TileMaxX = TileInfo.TileMaxX;
+        i32 TileXOffset = TileSize * TileX;
+        i32 TileY = TileInfo.TileY;
+        {
+            i32 TileMinY = TileInfo.TileMinY;
+            i32 TileMaxY = TileInfo.TileMaxY;
+            i32 TileYOffset = TileY * TileHeight * Width * 3;
+
+            i32 BufferTileOffset = TileXOffset + TileYOffset;
+
+            f32* BufferPos = RenderTarget + BufferTileOffset;
+
+            for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
+            {
+                for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
+                {
+                    f32* R = &BufferPos[0];
+                    f32* G = &BufferPos[1 * LANE_COUNT];
+                    f32* B = &BufferPos[2 * LANE_COUNT];
+
+                    m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+                    FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
+
+                    m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
+
+
+                    // Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
+                    __m256i Rint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.x), ByteMask), 16);
+                    __m256i Gint = _mm256_slli_epi32(_mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.y), ByteMask), 8);
+                    __m256i Bint = _mm256_and_si256(_mm256_cvtps_epi32(ClampedFrameColor.z), ByteMask);
+                    __m256i RGBint = _mm256_or_si256(_mm256_or_si256(Rint, Gint), Bint);
+
+                    __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)Width + (u64)X));
+                    *Pixels = RGBint;
+                    BufferPos += LANE_COUNT * 3;
+                }
+            }
+        }
+    }
 }
 
 struct WorkerThreadData
@@ -908,6 +971,7 @@ struct WorkerThreadData
     RenderBufferInfo BufferInfo; // TODO: this may be updated. make safe
     RenderTileInfo TileInfo;
     texture Texture;
+    void* ScreenBufferData;
 };
 
 static constexpr i32 NumMaxThreads = 1024;
@@ -923,6 +987,8 @@ static WORK_QUEUE_CALLBACK(DoWorkerThreadWork) // test callback function
 {
     WorkerThreadData* WorkerData = (WorkerThreadData*)Data;
     RenderTile(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->Texture);
+
+    OutputToScreen(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->ScreenBufferData);
 }
 
 static work_queue* Queue;
@@ -1072,7 +1138,8 @@ void InitializeCamera()
 }
 
 void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
-    texture Texture
+    texture Texture,
+    void* ScreenBufferData
 )
 {
     RenderBufferInfo BufferInfo;
@@ -1143,6 +1210,7 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
                 WorkData[FlatTileIndex].BufferInfo = BufferInfo;
                 WorkData[FlatTileIndex].TileInfo = TileInfo;
                 WorkData[FlatTileIndex].Texture = Texture;
+                WorkData[FlatTileIndex].ScreenBufferData = ScreenBufferData;
             }
         }
         tileDataChanged = false;
