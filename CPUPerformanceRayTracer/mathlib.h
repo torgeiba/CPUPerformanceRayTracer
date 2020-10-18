@@ -72,8 +72,6 @@ inline f32 fmadot(f32x4 u, f32x4 v) { return fma(u.x, v.x, fma(u.y, v.y, fma(u.z
 //inline f32 fmadot2(f32x4 u, f32x4 v) { return fma(u.x, v.x, u.y * v.y) + fma(u.z, v.z, u.w * v.w); }
 
 
-
-
 /*
 
 	SIMD versions
@@ -119,13 +117,13 @@ inline m256x2 add(__m256 c, m256x2 v) { return{ _mm256_add_ps(v.x, c), _mm256_ad
 inline m256x3 add(__m256 c, m256x3 v) { return{ _mm256_add_ps(v.x, c), _mm256_add_ps(v.y, c), _mm256_add_ps(v.z, c) }; }
 inline m256x4 add(__m256 c, m256x4 v) { return{ _mm256_add_ps(v.x, c), _mm256_add_ps(v.y, c), _mm256_add_ps(v.z, c), _mm256_add_ps(v.w, c) }; }
 
-inline m256x2 sub(m256x2 v, __m256 c) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y) }; }
-inline m256x3 sub(m256x3 v, __m256 c) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y), _mm256_sub_ps(c, v.z) }; }
-inline m256x4 sub(m256x4 v, __m256 c) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y), _mm256_sub_ps(c, v.z), _mm256_sub_ps(c, v.w) }; }
+inline m256x2 sub(m256x2 v, __m256 c) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c) }; }
+inline m256x3 sub(m256x3 v, __m256 c) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c), _mm256_sub_ps(v.z, c) }; }
+inline m256x4 sub(m256x4 v, __m256 c) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c), _mm256_sub_ps(v.z, c), _mm256_sub_ps(v.w, c) }; }
 
-inline m256x2 sub(__m256 c, m256x2 v) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c) }; }
-inline m256x3 sub(__m256 c, m256x3 v) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c), _mm256_sub_ps(v.z, c) }; }
-inline m256x4 sub(__m256 c, m256x4 v) { return{ _mm256_sub_ps(v.x, c), _mm256_sub_ps(v.y, c), _mm256_sub_ps(v.z, c), _mm256_sub_ps(v.w, c) }; }
+inline m256x2 sub(__m256 c, m256x2 v) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y) }; }
+inline m256x3 sub(__m256 c, m256x3 v) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y), _mm256_sub_ps(c, v.z) }; }
+inline m256x4 sub(__m256 c, m256x4 v) { return{ _mm256_sub_ps(c, v.x), _mm256_sub_ps(c, v.y), _mm256_sub_ps(c, v.z), _mm256_sub_ps(c, v.w) }; }
 
 inline m256x2 mul(m256x2 v, __m256 c) { return{ _mm256_mul_ps(v.x, c), _mm256_mul_ps(v.y, c) }; }
 inline m256x3 mul(m256x3 v, __m256 c) { return{ _mm256_mul_ps(v.x, c), _mm256_mul_ps(v.y, c), _mm256_mul_ps(v.z, c) }; }
@@ -202,6 +200,27 @@ inline __m256 compare_lt(__m256 a, __m256 b) { return _mm256_cmp_ps(a, b, _CMP_L
 inline __m256 compare_le(__m256 a, __m256 b) { return _mm256_cmp_ps(a, b, _CMP_LE_OQ); }  // <=	? ? 0xFFFFFFFF : 0
 inline __m256 compare_gt(__m256 a, __m256 b) { return _mm256_cmp_ps(a, b, _CMP_GT_OQ); }  // >	? ? 0xFFFFFFFF : 0
 inline __m256 compare_ge(__m256 a, __m256 b) { return _mm256_cmp_ps(a, b, _CMP_GE_OQ); }  // >=	? ? 0xFFFFFFFF : 0
+
+inline m256x2 compare_eq(m256x2 a, m256x2 b) { return m256x2{ compare_eq(a.x, b.x), compare_eq(a.y, b.y) }; }   // == ? ? 0xFFFFFFFF : 0
+inline m256x2 compare_ne(m256x2 a, m256x2 b) { return m256x2{ compare_ne(a.x, b.x), compare_ne(a.y, b.y) }; }  // !=	? ? 0xFFFFFFFF : 0
+inline m256x2 compare_lt(m256x2 a, m256x2 b) { return m256x2{ compare_lt(a.x, b.x), compare_lt(a.y, b.y) }; }  // <	? ? 0xFFFFFFFF : 0
+inline m256x2 compare_le(m256x2 a, m256x2 b) { return m256x2{ compare_le(a.x, b.x), compare_le(a.y, b.y) }; }  // <=	? ? 0xFFFFFFFF : 0
+inline m256x2 compare_gt(m256x2 a, m256x2 b) { return m256x2{ compare_gt(a.x, b.x), compare_gt(a.y, b.y) }; }  // >	? ? 0xFFFFFFFF : 0
+inline m256x2 compare_ge(m256x2 a, m256x2 b) { return m256x2{ compare_ge(a.x, b.x), compare_ge(a.y, b.y) }; }  // >=	? ? 0xFFFFFFFF : 0
+
+inline m256x3 compare_eq(m256x3 a, m256x3 b) { return m256x3{ compare_eq(a.x, b.x), compare_eq(a.y, b.y), compare_eq(a.z, b.z) }; }   // == ? ? 0xFFFFFFFF : 0
+inline m256x3 compare_ne(m256x3 a, m256x3 b) { return m256x3{ compare_ne(a.x, b.x), compare_ne(a.y, b.y), compare_ne(a.z, b.z) }; }  // !=	? ? 0xFFFFFFFF : 0
+inline m256x3 compare_lt(m256x3 a, m256x3 b) { return m256x3{ compare_lt(a.x, b.x), compare_lt(a.y, b.y), compare_lt(a.z, b.z) }; }  // <	? ? 0xFFFFFFFF : 0
+inline m256x3 compare_le(m256x3 a, m256x3 b) { return m256x3{ compare_le(a.x, b.x), compare_le(a.y, b.y), compare_le(a.z, b.z) }; }  // <=	? ? 0xFFFFFFFF : 0
+inline m256x3 compare_gt(m256x3 a, m256x3 b) { return m256x3{ compare_gt(a.x, b.x), compare_gt(a.y, b.y), compare_gt(a.z, b.z) }; }  // >	? ? 0xFFFFFFFF : 0
+inline m256x3 compare_ge(m256x3 a, m256x3 b) { return m256x3{ compare_ge(a.x, b.x), compare_ge(a.y, b.y), compare_ge(a.z, b.z) }; }  // >=	? ? 0xFFFFFFFF : 0
+
+inline m256x4 compare_eq(m256x4 a, m256x4 b) { return m256x4{ compare_eq(a.x, b.x), compare_eq(a.y, b.y), compare_eq(a.z, b.z), compare_eq(a.w, b.w) }; }   // == ? ? 0xFFFFFFFF : 0
+inline m256x4 compare_ne(m256x4 a, m256x4 b) { return m256x4{ compare_ne(a.x, b.x), compare_ne(a.y, b.y), compare_ne(a.z, b.z), compare_ne(a.w, b.w) }; }  // !=	? ? 0xFFFFFFFF : 0
+inline m256x4 compare_lt(m256x4 a, m256x4 b) { return m256x4{ compare_lt(a.x, b.x), compare_lt(a.y, b.y), compare_lt(a.z, b.z), compare_lt(a.w, b.w) }; }  // <	? ? 0xFFFFFFFF : 0
+inline m256x4 compare_le(m256x4 a, m256x4 b) { return m256x4{ compare_le(a.x, b.x), compare_le(a.y, b.y), compare_le(a.z, b.z), compare_le(a.w, b.w) }; }  // <=	? ? 0xFFFFFFFF : 0
+inline m256x4 compare_gt(m256x4 a, m256x4 b) { return m256x4{ compare_gt(a.x, b.x), compare_gt(a.y, b.y), compare_gt(a.z, b.z), compare_gt(a.w, b.w) }; }  // >	? ? 0xFFFFFFFF : 0
+inline m256x4 compare_ge(m256x4 a, m256x4 b) { return m256x4{ compare_ge(a.x, b.x), compare_ge(a.y, b.y), compare_ge(a.z, b.z), compare_ge(a.w, b.w) }; }  // >=	? ? 0xFFFFFFFF : 0
 
 /*
 	Logic and test operators
@@ -283,10 +302,6 @@ inline __m256 setzero_ps() { return _mm256_setzero_ps(); } // compiles to xor re
 inline m256x2 setzero2_ps() { return m256x2{ _mm256_setzero_ps(), _mm256_setzero_ps() }; }
 inline m256x3 setzero3_ps() { return m256x3{ _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps() }; }
 inline m256x4 setzero4_ps() { return m256x4{ _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps(), _mm256_setzero_ps() }; }
-
-/*
-	Shift operators
-*/
 
 /*
 	shuffle operators
@@ -390,6 +405,9 @@ inline m256x2 blend2_ps(m256x2 a, m256x2 b, __m256 mask) { return  { _mm256_blen
 inline m256x3 blend3_ps(m256x3 a, m256x3 b, __m256 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask), _mm256_blendv_ps(a.y, b.y, mask), _mm256_blendv_ps(a.z, b.z, mask) }; }
 inline m256x4 blend4_ps(m256x4 a, m256x4 b, __m256 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask), _mm256_blendv_ps(a.y, b.y, mask), _mm256_blendv_ps(a.z, b.z, mask), _mm256_blendv_ps(a.w, b.w, mask) }; }
 
+inline m256x2 blend2_ps(m256x2 a, m256x2 b, m256x2 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask.x), _mm256_blendv_ps(a.y, b.y, mask.y) }; }
+inline m256x3 blend3_ps(m256x3 a, m256x3 b, m256x3 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask.x), _mm256_blendv_ps(a.y, b.y, mask.y), _mm256_blendv_ps(a.z, b.z, mask.z) }; }
+inline m256x4 blend4_ps(m256x4 a, m256x4 b, m256x4 mask) { return  { _mm256_blendv_ps(a.x, b.x, mask.x), _mm256_blendv_ps(a.y, b.y, mask.y), _mm256_blendv_ps(a.z, b.z, mask.z), _mm256_blendv_ps(a.w, b.w, mask.w) }; }
 
 inline bool any_set(__m256 mask)  { return _mm256_movemask_ps(mask) != 0; }
 inline bool all_set(__m256 mask)  { return _mm256_movemask_ps(mask) == 0b11111111; }
@@ -593,19 +611,6 @@ template<typename T> inline T rflc(T u, T v) { return sub(mul(2., proj(u, v)), u
 inline f32x3 cross(f32x3 u, f32x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
 inline m256x3 cross(m256x3 u, m256x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
 
-//inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
-//{
-//	__m256 vdotn = dot(n, v);
-//	__m256 k = 1.f - ior * ior * (1.f - vdotn * vdotn);
-//	//if (k < 0.0) return{ 0.f };
-//	m256x3 Result = sub(mul(ior, v), mul((ior * vdotn + sroot(k)), n));
-//	__m256 RetZeroCond = (k < set1_ps(0.f));
-//	Result.x = blend_ps(Result.x, set1_ps(0.f), RetZeroCond);
-//	Result.y = blend_ps(Result.y, set1_ps(0.f), RetZeroCond);
-//	Result.z = blend_ps(Result.z, set1_ps(0.f), RetZeroCond);
-//	return Result;
-//}
-
 //https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/refract.xhtml
 inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 {
@@ -614,20 +619,9 @@ inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 	//if (k < 0.0) return{ 0.f };
 	m256x3 Result = (ior * v) -  (ior * vdotn + sroot(k)) * n;
 	__m256 RetZeroCond = (k < set1_ps(0.f));
-	/*Result.x = blend_ps(Result.x, set1_ps(0.f), RetZeroCond);
-	Result.y = blend_ps(Result.y, set1_ps(0.f), RetZeroCond);
-	Result.z = blend_ps(Result.z, set1_ps(0.f), RetZeroCond);*/
-
 	Result = blend3_ps(Result, set1x3_ps(0.f, 0.f, 0.f), RetZeroCond);
 	return Result;
 }
-
-
-// TODOs:
-
-// set / broadcast for vector component types, m256x3 etc
-// conditional move based on mask for vector component types
-
 
 /*
 
@@ -637,33 +631,33 @@ inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 inline __m256i set1_epi(i32 a) { return _mm256_set1_epi32(a); }
 
 inline __m256i xor(__m256i a, __m256i b) { return _mm256_xor_si256(a, b); }
-inline __m256i or (__m256i a, __m256i b) { return  _mm256_or_si256(a, b); }
+inline __m256i  or(__m256i a, __m256i b) { return  _mm256_or_si256(a, b); }
 inline __m256i and(__m256i a, __m256i b) { return _mm256_and_si256(a, b); }
 
-inline __m256i xor (__m256i a, i32 b) { return _mm256_xor_si256(a, set1_epi(b)); }
-inline __m256i or  (__m256i a, i32 b) { return  _mm256_or_si256(a, set1_epi(b)); }
-inline __m256i and (__m256i a, i32 b) { return _mm256_and_si256(a, set1_epi(b)); }
+inline __m256i xor(__m256i a, i32 b) { return _mm256_xor_si256(a, set1_epi(b)); }
+inline __m256i  or(__m256i a, i32 b) { return  _mm256_or_si256(a, set1_epi(b)); }
+inline __m256i and(__m256i a, i32 b) { return _mm256_and_si256(a, set1_epi(b)); }
 
-inline __m256i xor (i32 a, __m256i b) { return _mm256_xor_si256(set1_epi(a), b); }
-inline __m256i or  (i32 a, __m256i b) { return  _mm256_or_si256(set1_epi(a), b); }
-inline __m256i and (i32 a, __m256i b) { return _mm256_and_si256(set1_epi(a), b); }
+inline __m256i xor(i32 a, __m256i b) { return _mm256_xor_si256(set1_epi(a), b); }
+inline __m256i  or(i32 a, __m256i b) { return  _mm256_or_si256(set1_epi(a), b); }
+inline __m256i and(i32 a, __m256i b) { return _mm256_and_si256(set1_epi(a), b); }
 
 inline __m256i operator^(__m256i u, __m256i v) { return xor(u, v); }
-inline __m256i operator|(__m256i u, __m256i v) { return or(u, v); }
+inline __m256i operator|(__m256i u, __m256i v) { return  or(u, v); }
 inline __m256i operator&(__m256i u, __m256i v) { return and(u, v); }
 
-inline __m256i operator^(__m256i u, i32 v) { return xor (u, v); }
-inline __m256i operator|(__m256i u, i32 v) { return or (u, v); }
-inline __m256i operator&(__m256i u, i32 v) { return and (u, v); }
+inline __m256i operator^(__m256i u, i32 v) { return xor(u, v); }
+inline __m256i operator|(__m256i u, i32 v) { return  or(u, v); }
+inline __m256i operator&(__m256i u, i32 v) { return and(u, v); }
 
-inline __m256i operator^(i32 u, __m256i v) { return xor (u, v); }
-inline __m256i operator|(i32 u, __m256i v) { return or (u, v); }
-inline __m256i operator&(i32 u, __m256i v) { return and (u, v); }
+inline __m256i operator^(i32 u, __m256i v) { return xor(u, v); }
+inline __m256i operator|(i32 u, __m256i v) { return  or(u, v); }
+inline __m256i operator&(i32 u, __m256i v) { return and(u, v); }
 
-inline __m256i mul (__m256i a, __m256i b) { return _mm256_mullo_epi32(a, b); }
-inline __m256i div(__m256i a, __m256i b) { return _mm256_div_epi32(a, b); }
-inline __m256i add(__m256i a, __m256i b) { return _mm256_add_epi32(a, b); }
-inline __m256i sub(__m256i a, __m256i b) { return _mm256_sub_epi32(a, b); }
+inline __m256i mul(__m256i a, __m256i b) { return _mm256_mullo_epi32(a, b); }
+inline __m256i div(__m256i a, __m256i b) { return   _mm256_div_epi32(a, b); }
+inline __m256i add(__m256i a, __m256i b) { return   _mm256_add_epi32(a, b); }
+inline __m256i sub(__m256i a, __m256i b) { return   _mm256_sub_epi32(a, b); }
 
 inline __m256i mul(__m256i a, i32 b) { return _mm256_mullo_epi32(a, set1_epi(b)); }
 inline __m256i div(__m256i a, i32 b) { return   _mm256_div_epi32(a, set1_epi(b)); }
@@ -688,11 +682,14 @@ inline __m256i operator-(i32 u, __m256i v) { return sub(u, v); }
 inline __m256i operator*(i32 u, __m256i v) { return mul(u, v); }
 inline __m256i operator/(i32 u, __m256i v) { return div(u, v); }
 
-inline __m256i srli(__m256i a, const int imm8) { return _mm256_srli_epi32(a, imm8); }
-inline __m256i slli(__m256i a, const int imm8) { return _mm256_slli_epi32(a, imm8); }
+	/*
+		Shift operators
+	*/
+inline __m256i srli(__m256i a, const i32 imm8) { return _mm256_srli_epi32(a, imm8); }
+inline __m256i slli(__m256i a, const i32 imm8) { return _mm256_slli_epi32(a, imm8); }
 
-inline __m256i operator>>(__m256i u, const int imm8) { return srli(u, imm8); }
-inline __m256i operator<<(__m256i u, const int imm8) { return slli(u, imm8); }
+inline __m256i operator>>(__m256i u, const i32 imm8) { return srli(u, imm8); }
+inline __m256i operator<<(__m256i u, const i32 imm8) { return slli(u, imm8); }
 
 inline __m256i blend_epi(__m256i a, __m256i b, __m256i mask) { return _mm256_blendv_epi8(a, b, mask); }
 

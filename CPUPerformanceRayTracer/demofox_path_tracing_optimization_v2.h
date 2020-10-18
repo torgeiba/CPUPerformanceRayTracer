@@ -10,5 +10,5 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
     void* ScreenBufferData
 );
 
-m256x3 ACESFilm(m256x3 X);
-m256x3 LinearToSRGB(m256x3 rgb);
+//m256x3 ACESFilm(m256x3 X);
+//m256x3 LinearToSRGB(m256x3 rgb);

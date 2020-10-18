@@ -99,39 +99,23 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 //    return m256x3{ x, y, z };
 //}
 
-//// ACES tone mapping curve fit to go from HDR to LDR
-////https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
-//m256x3 ACESFilm(m256x3 X)
-//{
-//    f32 a = 2.51f;
-//    f32 b = 0.03f;
-//    f32 c = 2.43f;
-//    f32 d = 0.59f;
-//    f32 e = 0.14f;
-//    return clamp((X * (a * X + b)) / (X * (c * X + d) + e), set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
-//}
-//
-//m256x3 LinearToSRGB(m256x3 rgb)
-//{
-//    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
-//
-//    return m256x3{
-//        blend_ps(pow_ps(rgb.x, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.x * 12.92f, rgb.x < set1_ps(0.0031308f)),
-//        blend_ps(pow_ps(rgb.y, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.y * 12.92f, rgb.y < set1_ps(0.0031308f)),
-//        blend_ps(pow_ps(rgb.z, ConstOne / 2.4f) * 1.055f - 0.055f, rgb.z * 12.92f, rgb.z < set1_ps(0.0031308f))
-//    };
-//}
-//
-//m256x3 SRGBToLinear(m256x3 rgb)
-//{
-//    rgb = clamp(rgb, set1x3_ps(0.f, 0.f, 0.f), set1x3_ps(1.f, 1.f, 1.f));
-//
-//    return m256x3{
-//        blend_ps(pow_ps((rgb.x + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.x / 12.92f, rgb.x < set1_ps(0.04045f)),
-//        blend_ps(pow_ps((rgb.y + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.y / 12.92f, rgb.y < set1_ps(0.04045f)),
-//        blend_ps(pow_ps((rgb.z + 0.055f)/ 1.055f, set1_ps(2.4f)), rgb.z / 12.92f, rgb.z < set1_ps(0.04045f))
-//    };
-//}
+static m256x3 ACESFilm(m256x3 X)
+{
+    f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
+    return saturate((X * (a * X + b)) / (X * (c * X + d) + e));
+}
+
+static m256x3 LinearToSRGB(m256x3 rgb)
+{
+    rgb = saturate(rgb);
+    return  blend3_ps(1.055f * pow_ps(rgb, set1x3_ps(1.f, 1.f, 1.f) / 2.4f) - 0.055f, rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
+}
+
+static m256x3 SRGBToLinear(m256x3 rgb)
+{
+    rgb = saturate(rgb);
+    return blend3_ps(pow_ps((rgb + 0.055f) / 1.055f, set1x3_ps(2.4f, 2.4f, 2.4f)), rgb / 12.92f, rgb < set1x3_ps(0.04045f, 0.04045f, 0.04045f));
+}
 
 struct SMaterialInfo
 {
@@ -907,58 +891,37 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
 
 static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, void* ScreenBufferData)
 {
-    i32 Width = BufferInfo.BufferWidth;
-    i32 Height = BufferInfo.BufferHeight;
-
-    f32* RenderTarget = BufferInfo.BufferDataPtr;
-
-    i32 TileWidth = TileInfo.TileWidth;
-    i32 TileHeight = TileInfo.TileHeight;
-
     f32 c_exposure = 1.;
 
     __m256i ByteMask = set1_epi(0xFF);
-    i32 TileSize = TileHeight * TileWidth * 3;
-    i32 TileX = TileInfo.TileX;
+    i32 TileSize = TileInfo.TileHeight * TileInfo.TileWidth * 3;
+    i32 TileXOffset = TileSize * TileInfo.TileX;
+    i32 TileYOffset = TileInfo.TileY * TileInfo.TileHeight * BufferInfo.BufferWidth * 3;
+    i32 BufferTileOffset = TileXOffset + TileYOffset;
+    f32* BufferPos = BufferInfo.BufferDataPtr + BufferTileOffset;
+
+    for (i32 Y = TileInfo.TileMinY; Y <= TileInfo.TileMaxY; Y++)
     {
-        i32 TileMinX = TileInfo.TileMinX;
-        i32 TileMaxX = TileInfo.TileMaxX;
-        i32 TileXOffset = TileSize * TileX;
-        i32 TileY = TileInfo.TileY;
+        for (i32 X = TileInfo.TileMinX; X <= TileInfo.TileMaxX; X += LANE_COUNT)
         {
-            i32 TileMinY = TileInfo.TileMinY;
-            i32 TileMaxY = TileInfo.TileMaxY;
-            i32 TileYOffset = TileY * TileHeight * Width * 3;
+            f32* R = &BufferPos[0];
+            f32* G = &BufferPos[1 * LANE_COUNT];
+            f32* B = &BufferPos[2 * LANE_COUNT];
 
-            i32 BufferTileOffset = TileXOffset + TileYOffset;
+            m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+            FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
 
-            f32* BufferPos = RenderTarget + BufferTileOffset;
+            m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
 
-            for (i32 Y = TileMinY; Y <= TileMaxY; Y++)
-            {
-                for (i32 X = TileMinX; X <= TileMaxX; X += LANE_COUNT)
-                {
-                    f32* R = &BufferPos[0];
-                    f32* G = &BufferPos[1 * LANE_COUNT];
-                    f32* B = &BufferPos[2 * LANE_COUNT];
+            // Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
+            __m256i Rint = (to_epi32(ClampedFrameColor.x) & ByteMask) << 16;
+            __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
+            __m256i Bint =  to_epi32(ClampedFrameColor.z) & ByteMask;
+            __m256i RGBint = Rint | Gint | Bint;
 
-                    m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
-                    FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
-
-                    m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
-
-
-                    // Convert to integers, mask off bytes using byte mask, shift bytes into position, and combine into a single int per pixel
-                    __m256i Rint = (to_epi32(ClampedFrameColor.x) & ByteMask) << 16;
-                    __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
-                    __m256i Bint = to_epi32(ClampedFrameColor.z) & ByteMask;
-                    __m256i RGBint = Rint | Gint | Bint;
-
-                    __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)Width + (u64)X));
-                    *Pixels = RGBint;
-                    BufferPos += LANE_COUNT * 3;
-                }
-            }
+            __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)BufferInfo.BufferWidth + (u64)X));
+            *Pixels = RGBint;
+            BufferPos += LANE_COUNT * 3;
         }
     }
 }
