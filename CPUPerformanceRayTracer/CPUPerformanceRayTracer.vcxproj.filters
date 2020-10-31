@@ -182,6 +182,12 @@
     <ClInclude Include="demofox_path_tracing_optimization_v1.h">
       <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>Third Party</Filter>
+    </ClInclude>
+    <ClInclude Include="global_preprocessor_flags.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="DisasmOptimizedVectorized.txt">
@@ -190,5 +196,10 @@
     <Text Include="notes.txt">
       <Filter>Misc</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="output_image.bmp">
+      <Filter>Misc</Filter>
+    </Image>
   </ItemGroup>
 </Project>

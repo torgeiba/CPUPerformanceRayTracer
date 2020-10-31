@@ -26,11 +26,70 @@
 //#include "demofox_path_tracing_v3_redo.h"
 #include "demofox_path_tracing_optimization_v2.h"
 
-#define USE_VSYNC 1
-#define SHOW_FRAMETIMES 1
+#include "global_preprocessor_flags.h"
 
 // Global instance
 ApplicationState App;
+
+bool ApplicationState::CheckValidSettings()
+{
+	bool isValid = true;
+
+	i32 TileWidth  = BackBuffer.Width / NUM_TILES_X;
+	i32 TileHeight = BackBuffer.Height / NUM_TILES_Y;
+	bool validTileWidthX = (TileWidth % 8) == 0;
+
+	bool validTilesY = (BackBuffer.Height % NUM_TILES_Y) == 0;
+	bool validTilesX = (BackBuffer.Width  % NUM_TILES_X) == 0;
+
+	bool validBufferWidth = (BackBuffer.Width % 8) == 0;
+
+	isValid = validTileWidthX && validTilesY && validTilesX;
+	if (!isValid)
+	{
+		if (!validTileWidthX)
+		{
+			std::cout << "Invalid tile width detected. Must be multiple of 8 wide because of SIMD lane width" << "\n"
+				<< "Image width: " << BackBuffer.Width << "\n"
+				<< "Number of tile columns: " << NUM_TILES_X << "\n"
+				<< "Computed tile-width: " << f64(BackBuffer.Width)/f64(NUM_TILES_X) << "\n"
+				;
+			__debugbreak();
+		}
+
+		if (!validTilesY)
+		{
+			std::cout << "Invalid number of tile rows detected. " << "\n"
+				<< "Image height: " << BackBuffer.Height << "\n"
+				<< "Number of tile rows: " << NUM_TILES_Y << "\n"
+				<< "Computed tile-height: " << f64(BackBuffer.Height) / f64(NUM_TILES_Y) << "\n"
+				;
+			__debugbreak();
+		}
+
+		if (!validTilesX)
+		{
+			std::cout << "Invalid number of tile columns detected. " << "\n"
+				<< "Image width: " << BackBuffer.Width << "\n"
+				<< "Number of tile columns: " << NUM_TILES_X << "\n"
+				<< "Computed tile-height: " << f64(BackBuffer.Width) / f64(NUM_TILES_X) << "\n"
+				;
+			__debugbreak();
+		}
+		
+		if (!validBufferWidth)
+		{
+			std::cout << "Invalid image width detected. Must be multiple of 8 because of SIMD " << "\n"
+				<< "Image width: " << BackBuffer.Width << "\n"
+				<< "Number of tile columns: " << NUM_TILES_X << "\n"
+				<< "Computed tile-height: " << f64(BackBuffer.Width) / f64(NUM_TILES_X) << "\n"
+				;
+			__debugbreak();
+		}
+	}
+
+	return isValid;
+}
 
 static void Win32GetWindowClientDimensions(HWND Window, i32& WidthOut, i32& HeightOut)
 {
@@ -110,17 +169,19 @@ inline void ApplicationState::RunMessageLoop() {
 }
 
 #include "asset_loading.h"
-texture Texture;
+texture Texture; // todo, get rid of this global variable
 
 #include "intrinsic_utils.h"
 
-static f64 RenderTime_inner = 0; // Used to time the inner rendering function (excluding the copy out from rendertarget)
+//static f64 RenderTime_inner = 0; // Used to time the inner rendering function (excluding the copy out from rendertarget)
 
 void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 {
 
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\Delta_2k.hdr";
-	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
+	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";//
+	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field.hdr";
+	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field_Env.hdr";
 
 	Texture = LoadTexture(texturefilePath);
 
@@ -147,8 +208,8 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 
 	i32 WindowWidth = CW_USEDEFAULT, WindowHeight = CW_USEDEFAULT;
 	i32 WindowTopLeftX = CW_USEDEFAULT, WindowTopLeftY = CW_USEDEFAULT;
-	i32 ClientWidth = 640*2, ClientHeight = 360*2;
-	i32 BackbufferResolutionX = 360, BackbufferResolutionY = 360;
+	i32 ClientWidth = WINDOW_CLIENT_PIXEL_WIDTH, ClientHeight = WINDOW_CLIENT_PIXEL_HEIGHT;
+	i32 BackbufferResolutionX = RENDER_BUFFER_PIXEL_WIDTH, BackbufferResolutionY = RENDER_BUFFER_PIXEL_HEIGHT;
 
 	if (FullScreen)
 	{
@@ -185,6 +246,10 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	}
 	// Initialize with fixed backbuffer resolution
 	BackBuffer.Resize(BackbufferResolutionX, BackbufferResolutionY);
+
+	CheckValidSettings();
+
+	InitializeGlobalRenderResources();
 
 	Render();// TEMP NOTE TODO: do not render here while resize code is unsafe for threads
 
@@ -227,7 +292,7 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 				std::string("FrameTime: ") + std::to_string(TimeSeconds * 1000.) +
 				" ms, Sync: " + std::to_string(SyncTimeSeconds * 1000.) +
 				" ms, MsgProcess: " + std::to_string(MsgTimeSeconds * 1000.) +
-				" ms, Render (inner): " + std::to_string(/*RenderTimeSeconds*/ RenderTime_inner * 1000.) +
+				//" ms, Render (inner): " + std::to_string(/*RenderTimeSeconds*/ RenderTime_inner * 1000.) +
 				" ms, Render (total): " + std::to_string(RenderTimeSeconds * 1000.) +
 				" ms, Present: " + std::to_string(PresentTimeSeconds * 1000.) + " ms"
 				//+ ". X: " + std::to_string(MouseCoords.XPos) + ", Y: " + std::to_string(MouseCoords.YPos)
@@ -280,6 +345,70 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	ReleaseDC(Window, DeviceContext);
 }
 
+f64 ApplicationState::RenderOffline()
+{
+	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
+	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field.hdr";
+	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field_Env.hdr";
+	Texture = LoadTexture(texturefilePath);
+
+	i32 BackbufferResolutionX = RENDER_BUFFER_PIXEL_WIDTH;
+	i32 BackbufferResolutionY = RENDER_BUFFER_PIXEL_HEIGHT;
+	BackBuffer.Resize(BackbufferResolutionX, BackbufferResolutionY); // Initialize with fixed backbuffer resolution
+
+	Running = true;
+
+	InitializeGlobalRenderResources();
+
+	CheckValidSettings();
+
+	i64 NumFramesToRender = NUM_FRAMES_TO_RENDER;
+	HasRenderedThisFrame = false;
+	Render();
+	Render();
+	i64 TimerStart = GetPerformanceCounter();
+	f64 CompletionProgress = 0.;
+	f64 LastPrintProgress = 0.f;
+	for(i64 iFrame = 0; iFrame < NumFramesToRender; iFrame++)
+	{
+		HasRenderedThisFrame = false;
+		Render();
+		CompletionProgress = (f64)(iFrame + 1) / (f64)NumFramesToRender;
+		if (CompletionProgress >= LastPrintProgress + 0.01)
+		{
+			LastPrintProgress = CompletionProgress;
+			std::cout << (CompletionProgress * 100.) << "\%" << "\n";
+		}
+	}
+	i64 TimerEnd = GetPerformanceCounter();
+	i64 FrequencySeconds = GetPerformanceCounterFrequency();
+	i64 SecondsToMillisecondsFactor = 1000;
+	i64 TotalTicks = TimerEnd - TimerStart;
+	i64 TotalTimeTicks = (SecondsToMillisecondsFactor * TotalTicks);
+	f64 FrameTimeMs = (TotalTimeTicks / (f64)FrequencySeconds) / (f64)NumFramesToRender;
+	std::cout << TotalTimeTicks << "\n" << FrameTimeMs << "\n";
+
+
+	std::cout << "Writing to file..." << "\n";
+	{
+		win32_offscreen_buffer* Buffer = &BackBuffer;
+
+		i32 Width = Buffer->Width;
+		i32 Height = Buffer->Height;
+
+		f32* RenderTarget = Buffer->RenderTarget;
+		i32 NumTilesX = NUM_TILES_X;
+		i32 NumTilesY = NUM_TILES_Y;
+		i32 TileWidth = Width / NumTilesX;
+		i32 TileHeight = Height / NumTilesY;
+		CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
+	}
+
+	WriteImage("output_image.bmp", BackbufferResolutionX, BackbufferResolutionY, 4, BackBuffer.Memory);
+
+	return FrameTimeMs;
+}
+
 void ApplicationState::Render()
 {
 	win32_offscreen_buffer* Buffer = &BackBuffer;
@@ -290,13 +419,11 @@ void ApplicationState::Render()
 
 	f32* RenderTarget = Buffer->RenderTarget;
 
-	i32 NumTilesX = 2 * 8;
-	i32 NumTilesY = 4 * 8;
+	i32 NumTilesX = NUM_TILES_X;
+	i32 NumTilesY = NUM_TILES_Y;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	i64 PerfRenderStart_inner = GetPerformanceCounter();
 	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
-	RenderTime_inner = GetPerformanceCounterIntervalSeconds(PerfRenderStart_inner, GetPerformanceCounter());
 
 	HasRenderedThisFrame = true;
 }

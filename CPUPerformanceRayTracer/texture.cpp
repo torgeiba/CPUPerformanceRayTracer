@@ -52,10 +52,16 @@ m256x3 TexelSampleBilinear(texture texture, m256x2 UVs)
 	__m256 dV = Row - Row0;
 	__m256 dU = Col - Col0;
 
-	__m256i I00 = to_epi32(3.0f * (Col0 + Row0 * (f32)(texture.Width)));
-	__m256i I10 = to_epi32(3.0f * (Col1 + Row0 * (f32)(texture.Width)));
-	__m256i I01 = to_epi32(3.0f * (Col0 + Row1 * (f32)(texture.Width)));
-	__m256i I11 = to_epi32(3.0f * (Col1 + Row1 * (f32)(texture.Width)));
+	__m256 texWidth = set1_ps(3.0f * (f32)(texture.Width));
+	Row0 = Row0 * texWidth;
+	Row1 = Row1 * texWidth;
+	Col0 = Col0 * 3.0f;
+	Col1 = Col1 * 3.0f;
+
+	__m256i I00 = to_epi32(Col0 + Row0);
+	__m256i I10 = to_epi32(Col1 + Row0);
+	__m256i I01 = to_epi32(Col0 + Row1);
+	__m256i I11 = to_epi32(Col1 + Row1);
 
 	m256x3 C00 = GatherRGB(base_addr, I00);
 	m256x3 C10 = GatherRGB(base_addr, I10);

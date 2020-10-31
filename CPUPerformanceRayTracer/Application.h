@@ -53,8 +53,11 @@ struct ApplicationState
 
 	void RunApp(HINSTANCE Instance, i32 ShowCode);
 
+	f64 RenderOffline();
+
 private:
 	void RunMessageLoop();
+	bool CheckValidSettings();
 };
 
 extern ApplicationState App;

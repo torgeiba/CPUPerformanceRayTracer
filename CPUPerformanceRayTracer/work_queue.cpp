@@ -2,7 +2,8 @@
 
 #include "intrin.h" // WriteBarrier
 
-#define NUM_THREADS 8
+#include "global_preprocessor_flags.h"
+//#define NUM_THREADS 8
 
 static bool DoNextWorkQueueEntry(work_queue* Queue)
 {

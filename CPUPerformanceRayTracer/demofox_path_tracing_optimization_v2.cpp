@@ -1,6 +1,8 @@
 #include "demofox_path_tracing_optimization_v2.h"
 #include "work_queue.h"
 
+#include "global_preprocessor_flags.h"
+
 // The minimunm distance a ray must travel before we consider an intersection.
 // This is to prevent a ray from intersecting a surface it just bounced off of.
 const f32 c_minimumRayHitTime = 0.01f;
@@ -19,7 +21,7 @@ const f32 c_FOVDegrees = 90.0f;
 const int c_numBounces = 8;
 
 // how many renders per frame - to get around the vsync limitation.
-const int c_numRendersPerFrame = 1;
+const int c_numRendersPerFrame = NUM_SAMPLES_PER_FRAME;
 
 const f32 c_pi = 3.14159265359f;
 const f32 c_twopi = 2.0f * c_pi;
@@ -173,11 +175,12 @@ static SMaterialInfo ConditionalWriteMaterial(SMaterialInfo OldMaterial, SMateri
 struct QuadSceneObject
 {
     // Vertices
-    m256x3 V0;// = set1x3_ps(-25.0f, -12.5f, 5.0f);
-    m256x3 V1;// = set1x3_ps(25.0f, -12.5f, 5.0f);
-    m256x3 V2;// = set1x3_ps(25.0f, -12.5f, -5.0f);
-    m256x3 V3;// = set1x3_ps(-25.0f, -12.5f, -5.0f);
+    m256x3 V0;
+    m256x3 V1;
+    m256x3 V2;
+    m256x3 V3;
 
+    // precomputed / cached info
     m256x3 NxV01;
     m256x3 NxV12;
     m256x3 NxV20;
@@ -187,7 +190,6 @@ struct QuadSceneObject
     m256x3 NxV23;
     m256x3 NxV30;
 
-    // precomputed / cached info
     m256x3 normal;
 };
 
@@ -665,8 +667,11 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             m256x3 SampleDir = newRayDir;
             SampleDir.x = -newRayDir.x;
             SampleDir.z = -newRayDir.z;
+#if USE_ENV_MAP
             m256x3 ambient = EquirectangularTextureSampleBilinear(Texture, SampleDir);
-            //m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
+#else
+            m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
+#endif
             ambient *= newThroughput;
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
@@ -815,7 +820,7 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
 
     // raytrace for this pixel
     m256x3 color{ ConstZero, ConstZero, ConstZero };
-    for (int index = 0; index < c_numRendersPerFrame; ++index)
+    for (i32 index = 0; index < c_numRendersPerFrame; ++index)
         color += (GetColorForRay(camera.Position, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
 
     return color;
@@ -875,7 +880,7 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
 
             color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
 
-#if 0
+#if USE_NON_TEMPORAL_STORE
             non_temporal_store(R, color.x);
             non_temporal_store(G, color.y);
             non_temporal_store(B, color.z);
@@ -917,9 +922,45 @@ static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInf
             __m256i Rint = (to_epi32(ClampedFrameColor.x) & ByteMask) << 16;
             __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
             __m256i Bint =  to_epi32(ClampedFrameColor.z) & ByteMask;
+            //__m256i Aint = set1_epi(0xFF) << 24;
             __m256i RGBint = Rint | Gint | Bint;
-
             __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)BufferInfo.BufferWidth + (u64)X));
+            *Pixels = RGBint;
+            BufferPos += LANE_COUNT * 3;
+        }
+    }
+}
+
+static void OutputToFile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, void* FileBufferData)
+{
+    f32 c_exposure = 1.;
+
+    __m256i ByteMask = set1_epi(0xFF);
+    i32 TileSize = TileInfo.TileHeight * TileInfo.TileWidth * 3;
+    i32 TileXOffset = TileSize * TileInfo.TileX;
+    i32 TileYOffset = TileInfo.TileY * TileInfo.TileHeight * BufferInfo.BufferWidth * 3;
+    i32 BufferTileOffset = TileXOffset + TileYOffset;
+    f32* BufferPos = BufferInfo.BufferDataPtr + BufferTileOffset;
+
+    for (i32 Y = TileInfo.TileMinY; Y <= TileInfo.TileMaxY; Y++)
+    {
+        for (i32 X = TileInfo.TileMinX; X <= TileInfo.TileMaxX; X += LANE_COUNT)
+        {
+            f32* R = &BufferPos[0];
+            f32* G = &BufferPos[1 * LANE_COUNT];
+            f32* B = &BufferPos[2 * LANE_COUNT];
+
+            m256x3 FrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
+            FrameColor = LinearToSRGB(ACESFilm(FrameColor * c_exposure));
+
+            m256x3 ClampedFrameColor = saturate(FrameColor) * 255.f;
+
+            __m256i Aint = set1_epi(0xFF) << 24;
+            __m256i Rint = (to_epi32(ClampedFrameColor.x) & ByteMask) << 0;
+            __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
+            __m256i Bint = (to_epi32(ClampedFrameColor.z) & ByteMask) << 16;
+            __m256i RGBint = Aint | Rint | Gint | Bint;
+            __m256i* Pixels = (__m256i*)((u32*)(FileBufferData)+((u64)Y * (u64)BufferInfo.BufferWidth + (u64)X));
             *Pixels = RGBint;
             BufferPos += LANE_COUNT * 3;
         }
@@ -948,7 +989,15 @@ static WORK_QUEUE_CALLBACK(DoWorkerThreadWork) // test callback function
     WorkerThreadData* WorkerData = (WorkerThreadData*)Data;
     RenderTile(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->Texture);
 
+#if OUTPUT_TO_SCREEN
     OutputToScreen(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->ScreenBufferData);
+#endif
+}
+
+static WORK_QUEUE_CALLBACK(DoWorkerThreadWork_CopyImageOut) // test callback function
+{
+    WorkerThreadData* WorkerData = (WorkerThreadData*)Data;
+    OutputToFile(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->ScreenBufferData);
 }
 
 static work_queue* Queue;
@@ -1089,7 +1138,8 @@ void InitializeCamera()
     camera.Position = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
 }
 
-void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+static void UpdateTileInfo(
+    f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
     void* ScreenBufferData
 )
@@ -1102,8 +1152,46 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
         BufferInfo.NumChannels = NumChannels;
     }
 
-    i32 NumThreads = NumTilesX * NumTilesY;
+    for (i32 TileX = 0; TileX < NumTilesX; TileX++)
+    {
+        i32 TileMinX = TileX * TileWidth;
+        i32 TileMaxX = TileMinX + (TileWidth - 1);
+        for (i32 TileY = 0; TileY < NumTilesY; TileY++)
+        {
+            // render tile (TileX, TileY)
+            i32 TileMinY = TileY * TileHeight;
+            i32 TileMaxY = TileMinY + (TileHeight - 1);
 
+            RenderTileInfo TileInfo;
+            {
+                TileInfo.TileX = TileX;
+                TileInfo.TileY = TileY;
+
+                TileInfo.TileHeight = TileHeight;
+                TileInfo.TileWidth = TileWidth;
+
+                TileInfo.TileMinX = TileMinX;
+                TileInfo.TileMaxX = TileMaxX < BufferWidth ? TileMaxX : (BufferWidth - 1);
+
+                TileInfo.TileMinY = TileMinY;
+                TileInfo.TileMaxY = TileMaxY < BufferHeight ? TileMaxY : (BufferHeight - 1);
+
+                TileInfo.TileHeight = TileInfo.TileMaxY - TileInfo.TileMinY + 1;
+                TileInfo.TileWidth = TileInfo.TileMaxX - TileInfo.TileMinX + 1;
+            }
+
+            i32 FlatTileIndex = TileX + NumTilesX * TileY;
+            WorkData[FlatTileIndex].BufferInfo = BufferInfo;
+            WorkData[FlatTileIndex].TileInfo = TileInfo;
+            WorkData[FlatTileIndex].Texture = Texture;
+            WorkData[FlatTileIndex].ScreenBufferData = ScreenBufferData;
+        }
+    }
+    tileDataChanged = false;
+}
+
+void InitializeGlobalRenderResources()
+{
     // Camera must be initialized before the rest of the scene because of precomputation for quads (TODO: fix this dependency)
     if (camera_uninitialized)
     {
@@ -1117,8 +1205,46 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
         scene_uninitialized = false;
     }
 
-    
+    // If first time we render, initialize threadpool. TODO: do this at app initialization instead
+    if (threadpooluninitialized)
+    {
+        Queue = MakeWorkQueue();
+        threadpooluninitialized = false;
+    }
+}
 
+void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+    texture Texture,
+    void* ScreenBufferData
+)
+{
+    InitializeGlobalRenderResources();
+
+    iFrame += 1.0f;
+
+    if (tileDataChanged)
+    {
+        UpdateTileInfo(
+            BufferOut, BufferWidth, BufferHeight, NumTilesX, NumTilesY, TileWidth, TileHeight, NumChannels,
+            Texture,
+            ScreenBufferData
+        );
+    }
+
+    i32 NumTiles = NumTilesX * NumTilesY;
+    for (i32 FlatTileIndex = 0; FlatTileIndex < NumTiles; FlatTileIndex++)
+    {
+        AddWorkQueueEntry(Queue, DoWorkerThreadWork, &WorkData[FlatTileIndex]);
+    }
+
+    CompleteAllWork(Queue);
+}
+
+void CopyOutputToFile(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+    texture Texture,
+    void* ScreenBufferData
+)
+{
     // If first time we render, initialize threadpool. TODO: do this at app initialization instead
     if (threadpooluninitialized)
     {
@@ -1130,48 +1256,18 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
 
     if (tileDataChanged)
     {
-        for (i32 TileX = 0; TileX < NumTilesX; TileX++)
-        {
-            i32 TileMinX = TileX * TileWidth;
-            i32 TileMaxX = TileMinX + (TileWidth - 1);
-            for (i32 TileY = 0; TileY < NumTilesY; TileY++)
-            {
-                // render tile (TileX, TileY)
-                i32 TileMinY = TileY * TileHeight;
-                i32 TileMaxY = TileMinY + (TileHeight - 1);
-
-                RenderTileInfo TileInfo;
-                {
-                    TileInfo.TileX = TileX;
-                    TileInfo.TileY = TileY;
-
-                    TileInfo.TileHeight = TileHeight;
-                    TileInfo.TileWidth = TileWidth;
-
-                    TileInfo.TileMinX = TileMinX;
-                    TileInfo.TileMaxX = TileMaxX < BufferWidth ? TileMaxX : (BufferWidth - 1);
-
-                    TileInfo.TileMinY = TileMinY;
-                    TileInfo.TileMaxY = TileMaxY < BufferHeight ? TileMaxY : (BufferHeight - 1);
-
-                    TileInfo.TileHeight = TileInfo.TileMaxY - TileInfo.TileMinY + 1;
-                    TileInfo.TileWidth = TileInfo.TileMaxX - TileInfo.TileMinX + 1;
-                }
-
-                i32 FlatTileIndex = TileX + NumTilesX * TileY;
-                WorkData[FlatTileIndex].BufferInfo = BufferInfo;
-                WorkData[FlatTileIndex].TileInfo = TileInfo;
-                WorkData[FlatTileIndex].Texture = Texture;
-                WorkData[FlatTileIndex].ScreenBufferData = ScreenBufferData;
-            }
-        }
-        tileDataChanged = false;
+        UpdateTileInfo(
+            BufferOut, BufferWidth, BufferHeight, NumTilesX, NumTilesY, TileWidth, TileHeight, NumChannels,
+            Texture,
+            ScreenBufferData
+        );
     }
 
 
-    for (i32 FlatTileIndex = 0; FlatTileIndex < NumTilesX * NumTilesY - 1; FlatTileIndex++)
+    i32 NumTiles = NumTilesX * NumTilesY;
+    for (i32 FlatTileIndex = 0; FlatTileIndex < NumTiles; FlatTileIndex++)
     {
-        AddWorkQueueEntry(Queue, DoWorkerThreadWork, &WorkData[FlatTileIndex]);
+        AddWorkQueueEntry(Queue, DoWorkerThreadWork_CopyImageOut, &WorkData[FlatTileIndex]);
     }
 
     CompleteAllWork(Queue);

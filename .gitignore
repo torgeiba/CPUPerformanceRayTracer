@@ -240,3 +240,5 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+/CPUPerformanceRayTracer/output_image_hd.bmp
+/CPUPerformanceRayTracer/output_image_4k.bmp

@@ -21,7 +21,12 @@ f64 GetPerformanceCounterIntervalSeconds(i64 Start, i64 End)
 void InitializeQueryPerformanceCounter()
 {
 	LARGE_INTEGER Frequency;
-	QueryPerformanceFrequency(&Frequency);
+	bool Success = QueryPerformanceFrequency(&Frequency);
+	if (!Success || (Frequency.QuadPart == 0))
+	{
+		DWORD ErrorCode = GetLastError();
+		__debugbreak();
+	}
 	Global_QPC_Frequency = Frequency.QuadPart;
 }
 
