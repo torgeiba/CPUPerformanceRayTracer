@@ -101,6 +101,28 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 //    return m256x3{ x, y, z };
 //}
 
+static __m256 fast_pow_gamma(__m256 x)
+{
+    // x^(1/2.4) = x^(5/12) = x^(2/12 + 3/12) = x^(1/6 + 1/4) = x^((1/3 + 1/2) / 2) = sqrt(sqrt(x) + pow(x, 1/3))
+    // then use newton's method for 3 iterations to compute the cube root (pow(x, 1/3))
+    __m256 sqrtx = sroot(x);
+    __m256 onethird = set1_ps(1.f / 3.f);
+    __m256 twothirds = set1_ps(2.f / 3.f);
+    __m256 nit1 = (sqrtx * twothirds) + onethird;
+    __m256 nit2 = (nit1 * twothirds) + (x / (nit1 * nit1)) * onethird;
+    __m256 nit3 = (nit2 * twothirds) + (x / (nit2 * nit2)) * onethird;
+    return sroot(sqrtx * nit3);
+}
+
+static m256x3 fast_pow_gamma3(m256x3 rgb)
+{
+    return m256x3{
+        fast_pow_gamma(rgb.x),
+        fast_pow_gamma(rgb.y),
+        fast_pow_gamma(rgb.z)
+    };
+}
+
 static m256x3 ACESFilm(m256x3 X)
 {
     f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
@@ -110,7 +132,12 @@ static m256x3 ACESFilm(m256x3 X)
 static m256x3 LinearToSRGB(m256x3 rgb)
 {
     rgb = saturate(rgb);
+
+#if USE_FAST_APPROXIMATE_GAMMA
+    return  blend3_ps(1.055f * fast_pow_gamma3(rgb) - 0.055f, rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
+#else
     return  blend3_ps(1.055f * pow_ps(rgb, set1x3_ps(1.f, 1.f, 1.f) / 2.4f) - 0.055f, rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
+#endif
 }
 
 static m256x3 SRGBToLinear(m256x3 rgb)
@@ -869,7 +896,12 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
         {
             fragCoord.x = set1_ps((f32)X) + XLaneOffsets;
 
+            // Tile visualization
+#if VISUALIZE_TILES
+            m256x3 color = set1x3_ps((f32)TileInfo.TileX / NUM_TILES_X, (f32)TileInfo.TileY / NUM_TILES_X, 0.f);
+#else
             m256x3 color = mainImage(fragCoord, iResolution, iFrame, Texture);
+#endif
 
             f32* R = &BufferPos[0];
             f32* G = &BufferPos[1 * LANE_COUNT];

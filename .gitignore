@@ -242,3 +242,10 @@ ModelManifest.xml
 .fake/
 /CPUPerformanceRayTracer/output_image_hd.bmp
 /CPUPerformanceRayTracer/output_image_4k.bmp
+*.vtune
+*.metadata
+*.aux
+*.th
+*.trace
+/CPUPerformanceRayTracer/My Advisor Results - CPUPerformanceRayTracer
+/CPUPerformanceRayTracer/VTune Profiler Results/CPUPerformanceRayTracer

@@ -203,7 +203,7 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	SetProcessDPIAware(); // In order to not report wrong monitor resolution when going fullscreen
 
 	bool FullScreen = false;
-	bool UseFullWindowResolutionBackbuffer = true;
+	bool UseFullWindowResolutionBackbuffer = USE_CLIENT_RESOLUTION_AS_BACKBUFFER_RESOLUTION;
 	bool UseSpecifiedClientSize = true;
 
 	i32 WindowWidth = CW_USEDEFAULT, WindowHeight = CW_USEDEFAULT;
@@ -264,7 +264,9 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	i64 PerfSyncStart = PerfFrameStart, PerfSyncEnd = PerfFrameStart;
 	f64 RenderTimeSeconds = 0., MsgTimeSeconds = 0., PresentTimeSeconds = 0.;
 
+#if SHOW_FRAMETIMES
 	i64 PerfMsgStart, PerfRenderStart, PerfPresentStart;
+#endif
 
 	ShowWindow(Window, ShowCode);
 
@@ -373,12 +375,14 @@ f64 ApplicationState::RenderOffline()
 	{
 		HasRenderedThisFrame = false;
 		Render();
+#if !OUTPUT_MODE_SILENT
 		CompletionProgress = (f64)(iFrame + 1) / (f64)NumFramesToRender;
 		if (CompletionProgress >= LastPrintProgress + 0.01)
 		{
 			LastPrintProgress = CompletionProgress;
-			std::cout << (CompletionProgress * 100.) << "\%" << "\n";
+			std::cout << (CompletionProgress * 100.) << "%" << "\n";
 		}
+#endif
 	}
 	i64 TimerEnd = GetPerformanceCounter();
 	i64 FrequencySeconds = GetPerformanceCounterFrequency();
@@ -386,10 +390,11 @@ f64 ApplicationState::RenderOffline()
 	i64 TotalTicks = TimerEnd - TimerStart;
 	i64 TotalTimeTicks = (SecondsToMillisecondsFactor * TotalTicks);
 	f64 FrameTimeMs = (TotalTimeTicks / (f64)FrequencySeconds) / (f64)NumFramesToRender;
+	
+#if !OUTPUT_MODE_SILENT
 	std::cout << TotalTimeTicks << "\n" << FrameTimeMs << "\n";
-
-
 	std::cout << "Writing to file..." << "\n";
+#endif
 	{
 		win32_offscreen_buffer* Buffer = &BackBuffer;
 
@@ -428,6 +433,7 @@ void ApplicationState::Render()
 	HasRenderedThisFrame = true;
 }
 
+static bool bFirstTimeResizing = true;
 LRESULT ApplicationState::Win32MainWindowCallback(HWND Window, u32 Message, u64 WParam, i64 LParam)
 {
 	LRESULT Result = 0;
@@ -437,7 +443,15 @@ LRESULT ApplicationState::Win32MainWindowCallback(HWND Window, u32 Message, u64 
 	case WM_SIZE: // Resize window
 	{
 		Win32GetWindowClientDimensions(Window, CurrentWindowWidth, CurrentWindowHeight);
-		BackBuffer.Resize(CurrentWindowWidth, CurrentWindowHeight);
+		
+		// Not resizing backbuffer, since there is currently an assumption that the BMP LDR image output is the same size as the rendertarget (see Resize(...) and win32_offscreen_buffer),
+		// so we only adjust the cached window dimensions
+		// Todo: find an elegant way to handle various backbuffer / window size scenarios
+		// This is a hack to make sure allocation and initializing the buffers is performed once, by triggering a resize of the "backbuffer".
+		if (bFirstTimeResizing) { 
+			BackBuffer.Resize(CurrentWindowWidth, CurrentWindowHeight);	
+			bFirstTimeResizing = false;
+		}
 		
 		// TODO: NOTE: currently pooled threaded rendering does not handle this well
 		Render();

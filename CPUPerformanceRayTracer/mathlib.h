@@ -694,5 +694,6 @@ inline __m256i operator<<(__m256i u, const i32 imm8) { return slli(u, imm8); }
 inline __m256i blend_epi(__m256i a, __m256i b, __m256i mask) { return _mm256_blendv_epi8(a, b, mask); }
 
 inline __m256i bitcast_epi(__m256 a) { return _mm256_castps_si256(a); }
+inline __m256 bitcast_ps(__m256i a) { return _mm256_castsi256_ps(a); }
 inline __m256i to_epi32(__m256 a) { return _mm256_cvtps_epi32(a); };
 inline __m256 to_ps(__m256i a) { return _mm256_cvtepi32_ps(a); };
