@@ -955,7 +955,7 @@ static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInf
             __m256i Gint = (to_epi32(ClampedFrameColor.y) & ByteMask) << 8;
             __m256i Bint =  to_epi32(ClampedFrameColor.z) & ByteMask;
             //__m256i Aint = set1_epi(0xFF) << 24;
-            __m256i RGBint = Rint | Gint | Bint;
+            __m256i RGBint = /*Aint |*/ Rint | Gint | Bint;
             __m256i* Pixels = (__m256i*)((u32*)(ScreenBufferData) + ((u64)Y * (u64)BufferInfo.BufferWidth + (u64)X));
             *Pixels = RGBint;
             BufferPos += LANE_COUNT * 3;
@@ -1170,6 +1170,7 @@ void InitializeCamera()
     camera.Position = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
 }
 
+// TODO: refactor this. Should be named updateworkerdata, and factor out tile computation
 static void UpdateTileInfo(
     f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
@@ -1272,6 +1273,7 @@ void DemofoxRenderOptV2(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 N
     CompleteAllWork(Queue);
 }
 
+// TODO: rename, does not actually output to file, but to a buffer, and does not actually just copy, but also applies post processing / tonemapping, sRGB and 8-bit conversion
 void CopyOutputToFile(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
     void* ScreenBufferData

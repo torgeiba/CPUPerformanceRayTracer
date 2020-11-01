@@ -406,7 +406,7 @@ f64 ApplicationState::RenderOffline()
 		i32 NumTilesY = NUM_TILES_Y;
 		i32 TileWidth = Width / NumTilesX;
 		i32 TileHeight = Height / NumTilesY;
-		CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
+		CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory); // TODO: make this function not take texture, etc ? 
 	}
 
 	WriteImage("output_image.bmp", BackbufferResolutionX, BackbufferResolutionY, 4, BackBuffer.Memory);
@@ -560,6 +560,37 @@ LRESULT ApplicationState::Win32MainWindowCallback(HWND Window, u32 Message, u64 
 	case WM_CHAR:
 	{
 		wchar_t Character = (wchar_t)WParam;
+		if (Character == L's')
+		{
+			SYSTEMTIME t;
+			int result;
+			char timebuffer[1024];
+			char datebuffer[1024];
+			char filename[1024];
+			GetLocalTime(&t);
+			result = GetTimeFormat(LOCALE_USER_DEFAULT, 0, &t, "hh_mm_ss", (LPTSTR)timebuffer, sizeof(timebuffer));
+			result = GetDateFormat(LOCALE_USER_DEFAULT, 0, &t, "dd_MMMM_yy", (LPTSTR)datebuffer, sizeof(datebuffer));
+
+#pragma warning( push )
+#pragma warning( disable : 4996)
+			sprintf(filename, "%s_%s__%s.bmp", "output_image", timebuffer, datebuffer);
+#pragma warning( pop ) 
+
+			// TODO: refactor, matches copyoutput to file from offline rendering path
+			{
+				win32_offscreen_buffer* Buffer = &BackBuffer;
+				i32 Width = Buffer->Width;
+				i32 Height = Buffer->Height;
+				f32* RenderTarget = Buffer->RenderTarget;
+				i32 NumTilesX = NUM_TILES_X;
+				i32 NumTilesY = NUM_TILES_Y;
+				i32 TileWidth = Width / NumTilesX;
+				i32 TileHeight = Height / NumTilesY;
+				CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory); // TODO: make this function not take texture, etc ? 
+			}
+
+			WriteImage(filename, BackBuffer.Width, BackBuffer.Height, 4, BackBuffer.Memory);
+		}
 	} break;
 
 	default:
