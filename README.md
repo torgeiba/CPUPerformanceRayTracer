@@ -21,5 +21,7 @@ Edit the file global_preprocessor flags to configure.\
 From there you can toggle between windowed mode and offline rendering mode,
 set resolution, number of threads to use, and how to split rendering into tiles.\
 The resolution width must be divisible by the number of tiles in the horizontal direction times 8, since the rendering is 8 pixels wide due to SIMD.\
-The resolution height must be divisible by the number of tiles in the vertical direction.\
+The resolution height must be divisible by the number of tiles in the vertical direction.
+
+
 
