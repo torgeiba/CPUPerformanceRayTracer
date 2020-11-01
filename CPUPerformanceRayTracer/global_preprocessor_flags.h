@@ -2,7 +2,14 @@
 
 // Application
 #define RENDER_OFFLINE 0
-#define USE_VSYNC !RENDER_OFFLINE
+
+#if RENDER_OFFLINE
+	#define USE_VSYNC 0
+#else
+	#define USE_VSYNC 1
+#endif
+
+
 #define SHOW_FRAMETIMES !RENDER_OFFLINE
 
 #if RENDER_OFFLINE
@@ -32,8 +39,8 @@
 #define WINDOW_CLIENT_PIXEL_HEIGHT 720
 #define WINDOW_CLIENT_PIXEL_WIDTH  1280
 
-//#define WINDOW_CLIENT_PIXEL_HEIGHT 720
-//#define WINDOW_CLIENT_PIXEL_WIDTH  1280
+//#define WINDOW_CLIENT_PIXEL_HEIGHT 1080
+//#define WINDOW_CLIENT_PIXEL_WIDTH  1920
 
 // Rendering
 #define USE_ENV_MAP 1
@@ -47,6 +54,6 @@
 // Threading / Work Queue
 #define NUM_THREADS 8
 
-#define NUM_TILES_X 8
+#define NUM_TILES_X 8	
 #define NUM_TILES_Y 12
 
