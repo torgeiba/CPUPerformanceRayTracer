@@ -4,16 +4,16 @@
 
 ## Description
 
-Path tracer using multithreading and SIMD to accelerate rendering.
-Based on the blog series and shader implementation by Alan Wolfe (demofox / @atrix256):
-https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/
-https://www.shadertoy.com/view/ttfyzN
+Path tracer using multithreading and SIMD to accelerate rendering.\
+Based on the blog series and shader implementation by Alan Wolfe (demofox / @atrix256):\
+https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/  \
+https://www.shadertoy.com/view/ttfyzN  \
 
 ## Requirements
 
-Windows 10
-CPU supporting AVX and AVX2
-(I also used Visual studio 2019 Community for this)
+* Windows 10
+* CPU supporting AVX and AVX2
+* (I also used Visual studio 2019 Community for this)
 
 ## How to configure
 
