@@ -58,6 +58,8 @@ struct ApplicationState
 private:
 	void RunMessageLoop();
 	bool CheckValidSettings();
+
+	void PostprocessAndWriteImageToFile(char* filename);
 };
 
 extern ApplicationState App;

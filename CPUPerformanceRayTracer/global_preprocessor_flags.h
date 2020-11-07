@@ -1,7 +1,13 @@
 #pragma once
 
+#define PERFORMANCE_PROFILING_BUILD 1
+
 // Application
-#define RENDER_OFFLINE 0
+#if PERFORMANCE_PROFILING_BUILD
+	#define RENDER_OFFLINE 0
+#else 
+	#define RENDER_OFFLINE 0
+#endif
 
 #if RENDER_OFFLINE
 	#define USE_VSYNC 0
@@ -12,13 +18,17 @@
 
 #define SHOW_FRAMETIMES !RENDER_OFFLINE
 
-#if RENDER_OFFLINE
-	#define OUTPUT_MODE_SILENT 0              // Toggles on / off writes to console for Offline rendering mode ( useful for profiling )
+#if PERFORMANCE_PROFILING_BUILD
+	#define OUTPUT_MODE_SILENT 1              // Toggles on / off writes to console for Offline rendering mode ( useful for profiling )
+#else
+	#if RENDER_OFFLINE
+		#define OUTPUT_MODE_SILENT 0
+	#endif
 #endif
 
 #if RENDER_OFFLINE
 	#define NUM_SAMPLES_PER_FRAME 1
-	#define NUM_FRAMES_TO_RENDER 1
+	#define NUM_FRAMES_TO_RENDER 600
 #else
 	#define NUM_SAMPLES_PER_FRAME 1
 	#define NUM_FRAMES_TO_RENDER 1

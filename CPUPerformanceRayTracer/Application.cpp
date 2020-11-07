@@ -347,6 +347,25 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	ReleaseDC(Window, DeviceContext);
 }
 
+void ApplicationState::PostprocessAndWriteImageToFile(char* filename)
+{
+	{
+		win32_offscreen_buffer* Buffer = &BackBuffer;
+
+		i32 Width = Buffer->Width;
+		i32 Height = Buffer->Height;
+
+		f32* RenderTarget = Buffer->RenderTarget;
+		i32 NumTilesX = NUM_TILES_X;
+		i32 NumTilesY = NUM_TILES_Y;
+		i32 TileWidth = Width / NumTilesX;
+		i32 TileHeight = Height / NumTilesY;
+		CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory); // TODO: make this function not take texture, etc ? 
+	}
+
+	WriteImage(filename, BackBuffer.Width, BackBuffer.Height, 4, BackBuffer.Memory);
+}
+
 f64 ApplicationState::RenderOffline()
 {
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";
@@ -366,6 +385,8 @@ f64 ApplicationState::RenderOffline()
 
 	i64 NumFramesToRender = NUM_FRAMES_TO_RENDER;
 	HasRenderedThisFrame = false;
+
+	// Warmup rendering (note that this adds two additional frames of rendering when measuring convergence by number of iterations)
 	Render();
 	Render();
 	i64 TimerStart = GetPerformanceCounter();
@@ -384,6 +405,11 @@ f64 ApplicationState::RenderOffline()
 		}
 #endif
 	}
+
+#if PERFORMANCE_PROFILING_BUILD
+	return 0.f;
+#endif
+
 	i64 TimerEnd = GetPerformanceCounter();
 	i64 FrequencySeconds = GetPerformanceCounterFrequency();
 	i64 SecondsToMillisecondsFactor = 1000;
@@ -395,22 +421,8 @@ f64 ApplicationState::RenderOffline()
 	std::cout << TotalTimeTicks << "\n" << FrameTimeMs << "\n";
 	std::cout << "Writing to file..." << "\n";
 #endif
-	{
-		win32_offscreen_buffer* Buffer = &BackBuffer;
 
-		i32 Width = Buffer->Width;
-		i32 Height = Buffer->Height;
-
-		f32* RenderTarget = Buffer->RenderTarget;
-		i32 NumTilesX = NUM_TILES_X;
-		i32 NumTilesY = NUM_TILES_Y;
-		i32 TileWidth = Width / NumTilesX;
-		i32 TileHeight = Height / NumTilesY;
-		CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory); // TODO: make this function not take texture, etc ? 
-	}
-
-	WriteImage("output_image.bmp", BackbufferResolutionX, BackbufferResolutionY, 4, BackBuffer.Memory);
-
+	PostprocessAndWriteImageToFile("output_image.bmp");
 	return FrameTimeMs;
 }
 
@@ -576,20 +588,7 @@ LRESULT ApplicationState::Win32MainWindowCallback(HWND Window, u32 Message, u64 
 			sprintf(filename, "%s_%s__%s.bmp", "output_image", timebuffer, datebuffer);
 #pragma warning( pop ) 
 
-			// TODO: refactor, matches copyoutput to file from offline rendering path
-			{
-				win32_offscreen_buffer* Buffer = &BackBuffer;
-				i32 Width = Buffer->Width;
-				i32 Height = Buffer->Height;
-				f32* RenderTarget = Buffer->RenderTarget;
-				i32 NumTilesX = NUM_TILES_X;
-				i32 NumTilesY = NUM_TILES_Y;
-				i32 TileWidth = Width / NumTilesX;
-				i32 TileHeight = Height / NumTilesY;
-				CopyOutputToFile(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory); // TODO: make this function not take texture, etc ? 
-			}
-
-			WriteImage(filename, BackBuffer.Width, BackBuffer.Height, 4, BackBuffer.Memory);
+			PostprocessAndWriteImageToFile(filename);
 		}
 	} break;
 

@@ -342,7 +342,7 @@ static Camera camera;
 
 static SMaterialInfo GatherMaterials(Scene& scene, __m256i materialIndices)
 {
-    SMaterialInfo Info{ 0 };
+    SMaterialInfo Info;
     Info.albedo.x = _mm256_i32gather_ps((f32*)&scene.materials.albedoR, materialIndices, 4);
     Info.albedo.y = _mm256_i32gather_ps((f32*)&scene.materials.albedoG, materialIndices, 4);
     Info.albedo.z = _mm256_i32gather_ps((f32*)&scene.materials.albedoB, materialIndices, 4);
@@ -675,10 +675,14 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
     for (i32 bounceIndex = 0; (bounceIndex <= c_numBounces) && !(all_set(shouldBreak)); ++bounceIndex)
     {
         // shoot a ray out into the world
-        SRayHitInfo hitInfo{ 0.f };
-        hitInfo.material = GetZeroedMaterial();
-        hitInfo.dist = set1_ps(c_superFar);
-        hitInfo.fromInside = MaskFalse;
+        SRayHitInfo hitInfo;
+        {
+            hitInfo.fromInside = MaskFalse;
+            hitInfo.dist = set1_ps(c_superFar);
+            hitInfo.normal = set1x3_ps(0.f, 0.f, 0.f);
+            //hitInfo.material = GetZeroedMaterial();
+            hitInfo.materialIndex = set1_epi(0);
+        }
 
         TestSceneTrace(scene, rayPos, rayDir, hitInfo, shouldBreak);
 
