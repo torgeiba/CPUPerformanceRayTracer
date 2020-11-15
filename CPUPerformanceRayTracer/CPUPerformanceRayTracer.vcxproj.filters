@@ -99,10 +99,13 @@
     <ClCompile Include="demofox_path_tracing_v3_redo.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp">
+    <ClCompile Include="demofox_path_tracing_optimization_v1.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_optimization_v3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v1.cpp">
+    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
   </ItemGroup>
@@ -176,9 +179,6 @@
     <ClInclude Include="demofox_path_tracing_v3_redo.h">
       <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_optimization_v2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="demofox_path_tracing_optimization_v1.h">
       <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
@@ -187,6 +187,12 @@
     </ClInclude>
     <ClInclude Include="global_preprocessor_flags.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_optimization_v3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_optimization_v2.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

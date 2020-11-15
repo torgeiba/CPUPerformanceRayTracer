@@ -173,6 +173,141 @@ m256x3 EquirectangularTextureSampleBilinear(texture texture, m256x3 Directions)
 	return Result;
 }
 
+// https://en.wikipedia.org/wiki/Cube_mapping
+//m256x3 CubemapTextureSampleBilinear(texture cubemap, m256x3 Directions)
+//{
+//	m256x3 Result;
+//	{
+//		// 
+//		m256x2 uv;
+//		// Directions -> face
+//		// find dominant direction
+//		m256x3 absDir = abs_ps(Directions);
+//		
+//		__m256 condxgty = absDir.x >= absDir.y;
+//		__m256 condxgtz = absDir.x >= absDir.z;
+//		__m256 condygtz = absDir.y >= absDir.z;
+//		
+//		__m256 positiveXOffset = set1_ps(0.f /*/ 6.f*/);
+//		__m256 negativeXOffset = set1_ps(1.f /*/ 6.f*/);
+//		__m256 positiveYOffset = set1_ps(2.f /*/ 6.f*/);
+//		__m256 negativeYOffset = set1_ps(3.f /*/ 6.f*/);
+//		__m256 positiveZOffset = set1_ps(4.f /*/ 6.f*/);
+//		__m256 negativeZOffset = set1_ps(5.f /*/ 6.f*/);
+//
+//		// condxgty && condxgtz && x >= 0  -> px
+//		m256x2 faceUV = m256x2{ -Directions.z, Directions.y };
+//		__m256 vOffset = positiveXOffset;
+//
+//		// condxgty && condxgtz && x  < 0  -> nx
+//		__m256 condNegX = condxgty && condxgtz && Directions.x < set1_ps(0.f);
+//		vOffset = blend_ps(vOffset, negativeXOffset, condNegX);
+//		faceUV = blend2_ps(faceUV, m256x2{ Directions.z, Directions.y }, condNegX);
+//
+//		// !condxgty && condygtz &&  y >= 0  -> py
+//		__m256 condPosY = !condxgty && condygtz && Directions.y >= set1_ps(0.f);
+//		vOffset = blend_ps(vOffset, positiveYOffset, condPosY);
+//		faceUV = blend2_ps(faceUV, m256x2{ Directions.x, -Directions.z }, condPosY);
+//
+//		// !condxgty && condygtz &&  y  < 0  -> ny
+//		__m256 condNegY = !condxgty && condygtz && Directions.y < set1_ps(0.f);
+//		vOffset = blend_ps(vOffset, negativeYOffset, condNegY);
+//		faceUV = blend2_ps(faceUV, m256x2{ Directions.x, Directions.z }, condNegY);
+//
+//		// !condxgtz && !condygtz &&  z >= 0  -> pz
+//		__m256 condPosZ = !condxgtz && !condygtz && Directions.z >= set1_ps(0.f);
+//		vOffset = blend_ps(vOffset, positiveZOffset, condPosZ);
+//		faceUV = blend2_ps(faceUV, m256x2{ Directions.x, Directions.y }, condPosZ);
+//
+//		// !condxgtz && !condygtz &&  z  < 0  -> nz
+//		__m256 condNegZ = !condxgtz && !condygtz && Directions.z < set1_ps(0.f);
+//		vOffset = blend_ps(vOffset, negativeZOffset, condNegZ);
+//		faceUV = blend2_ps(faceUV, m256x2{ -Directions.x, Directions.y }, condNegZ);
+//
+//		__m256 maxAbsDir = max_ps(absDir.x, max_ps(absDir.y, absDir.z));
+//		m256x2 scaledDirections = faceUV / maxAbsDir;
+//		m256x2 positiveQuadrant = (scaledDirections + 1.f) * 0.5f;
+//
+//		//faceUV -= round_floor(faceUV);
+//		positiveQuadrant = saturate(positiveQuadrant);
+//
+//		uv = positiveQuadrant;
+//		//uv.y = 1.f - uv.y;
+//		uv.y += vOffset;
+//		uv.y *= set1_ps(1.f/6.f);
+//
+//		uv = saturate(uv);
+//
+//		m256x3 rgb = TexelSampleBilinear(cubemap, uv);
+//		Result = rgb;
+//	}
+//	return Result;
+//}
+m256x3 CubemapTextureSampleBilinear(texture cubemap, m256x3 Directions)
+{
+	m256x2 uv;
+	m256x3 absDir = abs_ps(Directions);
+
+	m256x2 faceUV;
+	__m256 vOffset;
+
+	{
+		// condxgty && condxgtz && x >= 0  -> px
+		// condxgty && condxgtz && x  < 0  -> nx
+		__m256 condxgtzero = Directions.x >= set1_ps(0.f);
+		__m256 positiveXOffset = set1_ps(0.f /*/ 6.f*/);
+		__m256 negativeXOffset = set1_ps(1.f / 6.f);
+		faceUV.x = blend_ps(Directions.z, -Directions.z, condxgtzero);
+		faceUV.y = Directions.y;
+		vOffset = blend_ps(negativeXOffset, positiveXOffset, condxgtzero);
+	}
+
+	{
+		// !condxgty && condygtz &&  y >= 0  -> py
+		// !condxgty && condygtz &&  y  < 0  -> ny
+		__m256 condygtzero = Directions.y >= set1_ps(0.f);
+		__m256 positiveYOffset = set1_ps(2.f / 6.f);
+		__m256 negativeYOffset = set1_ps(3.f / 6.f);
+		__m256 Y_vOffset = blend_ps(negativeYOffset, positiveYOffset, condygtzero);
+		m256x2 Y_faceUV;
+		Y_faceUV.x = Directions.x;
+		Y_faceUV.y = blend_ps(Directions.z, -Directions.z, condygtzero);
+
+		__m256 condygtx = absDir.y >= absDir.x;
+		vOffset = blend_ps(vOffset, Y_vOffset, condygtx);
+		faceUV = blend2_ps(faceUV, Y_faceUV, condygtx);
+	}
+
+	{
+		// !condxgtz && !condygtz &&  z >= 0  -> pz
+		// !condxgtz && !condygtz &&  z  < 0  -> nz
+		__m256 condzgtzero = Directions.z >= set1_ps(0.f);
+		__m256 positiveZOffset = set1_ps(4.f / 6.f);
+		__m256 negativeZOffset = set1_ps(5.f / 6.f);
+
+		__m256 Z_vOffset = blend_ps(negativeZOffset, positiveZOffset, condzgtzero);
+		m256x2 Z_faceUV;
+		Z_faceUV.x = blend_ps(-Directions.x, Directions.x, condzgtzero);
+		Z_faceUV.y = Directions.y;
+
+		__m256 condzgtx = absDir.z >= absDir.x;
+		__m256 condzgty = absDir.z >= absDir.y;
+		__m256 condMaxZ = condzgtx && condzgty;
+		vOffset = blend_ps(vOffset, Z_vOffset, condMaxZ);
+		faceUV  = blend2_ps(faceUV, Z_faceUV, condMaxZ);
+	}
+
+	__m256 maxAbsDir = max_ps(absDir.x, max_ps(absDir.y, absDir.z));
+	m256x2 scaledDirections = faceUV / maxAbsDir;
+	m256x2 positiveQuadrant = scaledDirections * 0.5f + 0.5f;
+
+	positiveQuadrant = saturate(positiveQuadrant);
+
+	uv = positiveQuadrant;
+	uv.y = saturate(fmadd(uv.y, set1_ps(1.f / 6.f), vOffset));
+
+	return TexelSampleBilinear(cubemap, uv);	
+}
 
 void BilinearResampleRGB32(i32 InWidth, i32 InHeight, i32 OutWidth, i32 OutHeight, f32x3* InBuffer, f32x3* OutBuffer)
 {
@@ -248,3 +383,25 @@ void BilinearResampleRGB32(i32 InWidth, i32 InHeight, i32 OutWidth, i32 OutHeigh
 		}
 	}
 }
+
+
+
+
+
+
+
+
+//void ConvertEquirectangularToCubemap()
+//{
+//	// Read equirectangular env image
+//
+//	// allocate cubemap data
+//
+//	// for each pixel in output buffer,
+//		// resample input image
+//			// - collect input image samples
+//			// - interpolate
+//
+//	// write output cubemap
+//
+//}

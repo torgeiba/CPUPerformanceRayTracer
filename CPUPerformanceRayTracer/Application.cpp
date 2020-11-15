@@ -24,7 +24,8 @@
 //#include "demofox_path_tracing_simt.h"
 //#include "demofox_path_tracing_simt_textured.h"
 //#include "demofox_path_tracing_v3_redo.h"
-#include "demofox_path_tracing_optimization_v2.h"
+//#include "demofox_path_tracing_optimization_v2.h"
+#include "demofox_path_tracing_optimization_v3.h"
 
 #include "global_preprocessor_flags.h"
 
@@ -181,9 +182,22 @@ void ApplicationState::RunApp(HINSTANCE Instance, i32 ShowCode)
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\Delta_2k.hdr";
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\chinese_garden_2k.hdr";//
 	//char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field.hdr";
-	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field_Env.hdr";
 
+#if USE_ENV_CUBEMAP
+	char* cubemapFilePaths[6] =
+	{
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\px.hdr",
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\nx.hdr",
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\py.hdr",
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\ny.hdr",
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\pz.hdr",
+		"E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\nz.hdr",
+	};
+	Texture = LoadCubemapTexture(cubemapFilePaths);
+#else
+	char* texturefilePath = "E:\\Visual Studio Projects\\CPUPerformanceRayTracer\\Textures\\HDR_040_Field_Env.hdr";
 	Texture = LoadTexture(texturefilePath);
+#endif
 
 	WNDCLASSA WindowClass = {};
 	{
@@ -440,7 +454,7 @@ void ApplicationState::Render()
 	i32 NumTilesY = NUM_TILES_Y;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderOptV2(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
+	DemofoxRenderOptV3(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
 
 	HasRenderedThisFrame = true;
 }

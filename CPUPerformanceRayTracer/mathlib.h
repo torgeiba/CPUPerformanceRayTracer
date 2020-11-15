@@ -145,9 +145,82 @@ inline __m256 dot(m256x2 u, m256x2 v) { return _mm256_fmadd_ps(u.x, v.x,        
 inline __m256 dot(m256x3 u, m256x3 v) { return _mm256_fmadd_ps(u.x, v.x, _mm256_fmadd_ps(u.y, v.y,                           _mm256_mul_ps(u.z, v.z))); }
 inline __m256 dot(m256x4 u, m256x4 v) { return _mm256_fmadd_ps(u.x, v.x, _mm256_fmadd_ps(u.y, v.y, _mm256_fmadd_ps(u.z, v.z, _mm256_mul_ps(u.w, v.w)))); }
 
+// a * b + c
+inline __m256 fmadd(__m256 a, __m256 b, __m256 c) { return  _mm256_fmadd_ps(a, b, c); }
+
 inline m256x2 fmadd(m256x2 a, m256x2 b, m256x2 c) { return{ _mm256_fmadd_ps(a.x, b.x, c.x), _mm256_fmadd_ps(a.y, b.y, c.y) }; }
 inline m256x3 fmadd(m256x3 a, m256x3 b, m256x3 c) { return{ _mm256_fmadd_ps(a.x, b.x, c.x), _mm256_fmadd_ps(a.y, b.y, c.y), _mm256_fmadd_ps(a.z, b.z, c.z) }; }
 inline m256x4 fmadd(m256x4 a, m256x4 b, m256x4 c) { return{ _mm256_fmadd_ps(a.x, b.x, c.x), _mm256_fmadd_ps(a.y, b.y, c.y), _mm256_fmadd_ps(a.z, b.z, c.z), _mm256_fmadd_ps(a.w, b.w, c.w) }; }
+
+inline m256x2 fmadd(__m256 a, m256x2 b, m256x2 c) { return{ _mm256_fmadd_ps(a, b.x, c.x), _mm256_fmadd_ps(a, b.y, c.y) }; }
+inline m256x3 fmadd(__m256 a, m256x3 b, m256x3 c) { return{ _mm256_fmadd_ps(a, b.x, c.x), _mm256_fmadd_ps(a, b.y, c.y), _mm256_fmadd_ps(a, b.z, c.z) }; }
+inline m256x4 fmadd(__m256 a, m256x4 b, m256x4 c) { return{ _mm256_fmadd_ps(a, b.x, c.x), _mm256_fmadd_ps(a, b.y, c.y), _mm256_fmadd_ps(a, b.z, c.z), _mm256_fmadd_ps(a, b.w, c.w) }; }
+
+inline m256x2 fmadd(m256x2 a, __m256 b, m256x2 c) { return{ _mm256_fmadd_ps(a.x, b, c.x), _mm256_fmadd_ps(a.y, b, c.y) }; }
+inline m256x3 fmadd(m256x3 a, __m256 b, m256x3 c) { return{ _mm256_fmadd_ps(a.x, b, c.x), _mm256_fmadd_ps(a.y, b, c.y), _mm256_fmadd_ps(a.z, b, c.z) }; }
+inline m256x4 fmadd(m256x4 a, __m256 b, m256x4 c) { return{ _mm256_fmadd_ps(a.x, b, c.x), _mm256_fmadd_ps(a.y, b, c.y), _mm256_fmadd_ps(a.z, b, c.z), _mm256_fmadd_ps(a.w, b, c.w) }; }
+
+inline m256x2 fmadd(m256x2 a, m256x2 b, __m256 c) { return{ _mm256_fmadd_ps(a.x, b.x, c), _mm256_fmadd_ps(a.y, b.y, c) }; }
+inline m256x3 fmadd(m256x3 a, m256x3 b, __m256 c) { return{ _mm256_fmadd_ps(a.x, b.x, c), _mm256_fmadd_ps(a.y, b.y, c), _mm256_fmadd_ps(a.z, b.z, c) }; }
+inline m256x4 fmadd(m256x4 a, m256x4 b, __m256 c) { return{ _mm256_fmadd_ps(a.x, b.x, c), _mm256_fmadd_ps(a.y, b.y, c), _mm256_fmadd_ps(a.z, b.z, c), _mm256_fmadd_ps(a.w, b.w, c) }; }
+
+
+// -(a * b) + c
+inline __m256 fnmadd(__m256 a, __m256 b, __m256 c) { return  _mm256_fnmadd_ps(a, b, c); }
+
+inline m256x2 fnmadd(m256x2 a, m256x2 b, m256x2 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c.x), _mm256_fnmadd_ps(a.y, b.y, c.y) }; }
+inline m256x3 fnmadd(m256x3 a, m256x3 b, m256x3 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c.x), _mm256_fnmadd_ps(a.y, b.y, c.y), _mm256_fnmadd_ps(a.z, b.z, c.z) }; }
+inline m256x4 fnmadd(m256x4 a, m256x4 b, m256x4 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c.x), _mm256_fnmadd_ps(a.y, b.y, c.y), _mm256_fnmadd_ps(a.z, b.z, c.z), _mm256_fnmadd_ps(a.w, b.w, c.w) }; }
+
+inline m256x2 fnmadd(__m256 a, m256x2 b, m256x2 c) { return{ _mm256_fnmadd_ps(a, b.x, c.x), _mm256_fnmadd_ps(a, b.y, c.y) }; }
+inline m256x3 fnmadd(__m256 a, m256x3 b, m256x3 c) { return{ _mm256_fnmadd_ps(a, b.x, c.x), _mm256_fnmadd_ps(a, b.y, c.y), _mm256_fnmadd_ps(a, b.z, c.z) }; }
+inline m256x4 fnmadd(__m256 a, m256x4 b, m256x4 c) { return{ _mm256_fnmadd_ps(a, b.x, c.x), _mm256_fnmadd_ps(a, b.y, c.y), _mm256_fnmadd_ps(a, b.z, c.z), _mm256_fnmadd_ps(a, b.w, c.w) }; }
+
+inline m256x2 fnmadd(m256x2 a, __m256 b, m256x2 c) { return{ _mm256_fnmadd_ps(a.x, b, c.x), _mm256_fnmadd_ps(a.y, b, c.y) }; }
+inline m256x3 fnmadd(m256x3 a, __m256 b, m256x3 c) { return{ _mm256_fnmadd_ps(a.x, b, c.x), _mm256_fnmadd_ps(a.y, b, c.y), _mm256_fnmadd_ps(a.z, b, c.z) }; }
+inline m256x4 fnmadd(m256x4 a, __m256 b, m256x4 c) { return{ _mm256_fnmadd_ps(a.x, b, c.x), _mm256_fnmadd_ps(a.y, b, c.y), _mm256_fnmadd_ps(a.z, b, c.z), _mm256_fnmadd_ps(a.w, b, c.w) }; }
+
+inline m256x2 fnmadd(m256x2 a, m256x2 b, __m256 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c), _mm256_fnmadd_ps(a.y, b.y, c) }; }
+inline m256x3 fnmadd(m256x3 a, m256x3 b, __m256 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c), _mm256_fnmadd_ps(a.y, b.y, c), _mm256_fnmadd_ps(a.z, b.z, c) }; }
+inline m256x4 fnmadd(m256x4 a, m256x4 b, __m256 c) { return{ _mm256_fnmadd_ps(a.x, b.x, c), _mm256_fnmadd_ps(a.y, b.y, c), _mm256_fnmadd_ps(a.z, b.z, c), _mm256_fnmadd_ps(a.w, b.w, c) }; }
+
+// a * b - c
+inline __m256 fmsub(__m256 a, __m256 b, __m256 c) { return  _mm256_fmsub_ps(a, b, c); }
+
+inline m256x2 fmsub(m256x2 a, m256x2 b, m256x2 c) { return{ _mm256_fmsub_ps(a.x, b.x, c.x), _mm256_fmsub_ps(a.y, b.y, c.y) }; }
+inline m256x3 fmsub(m256x3 a, m256x3 b, m256x3 c) { return{ _mm256_fmsub_ps(a.x, b.x, c.x), _mm256_fmsub_ps(a.y, b.y, c.y), _mm256_fmsub_ps(a.z, b.z, c.z) }; }
+inline m256x4 fmsub(m256x4 a, m256x4 b, m256x4 c) { return{ _mm256_fmsub_ps(a.x, b.x, c.x), _mm256_fmsub_ps(a.y, b.y, c.y), _mm256_fmsub_ps(a.z, b.z, c.z), _mm256_fmsub_ps(a.w, b.w, c.w) }; }
+
+inline m256x2 fmsub(__m256 a, m256x2 b, m256x2 c) { return{ _mm256_fmsub_ps(a, b.x, c.x), _mm256_fmsub_ps(a, b.y, c.y) }; }
+inline m256x3 fmsub(__m256 a, m256x3 b, m256x3 c) { return{ _mm256_fmsub_ps(a, b.x, c.x), _mm256_fmsub_ps(a, b.y, c.y), _mm256_fmsub_ps(a, b.z, c.z) }; }
+inline m256x4 fmsub(__m256 a, m256x4 b, m256x4 c) { return{ _mm256_fmsub_ps(a, b.x, c.x), _mm256_fmsub_ps(a, b.y, c.y), _mm256_fmsub_ps(a, b.z, c.z), _mm256_fmsub_ps(a, b.w, c.w) }; }
+
+inline m256x2 fmsub(m256x2 a, __m256 b, m256x2 c) { return{ _mm256_fmsub_ps(a.x, b, c.x), _mm256_fmsub_ps(a.y, b, c.y) }; }
+inline m256x3 fmsub(m256x3 a, __m256 b, m256x3 c) { return{ _mm256_fmsub_ps(a.x, b, c.x), _mm256_fmsub_ps(a.y, b, c.y), _mm256_fmsub_ps(a.z, b, c.z) }; }
+inline m256x4 fmsub(m256x4 a, __m256 b, m256x4 c) { return{ _mm256_fmsub_ps(a.x, b, c.x), _mm256_fmsub_ps(a.y, b, c.y), _mm256_fmsub_ps(a.z, b, c.z), _mm256_fmsub_ps(a.w, b, c.w) }; }
+
+inline m256x2 fmsub(m256x2 a, m256x2 b, __m256 c) { return{ _mm256_fmsub_ps(a.x, b.x, c), _mm256_fmsub_ps(a.y, b.y, c) }; }
+inline m256x3 fmsub(m256x3 a, m256x3 b, __m256 c) { return{ _mm256_fmsub_ps(a.x, b.x, c), _mm256_fmsub_ps(a.y, b.y, c), _mm256_fmsub_ps(a.z, b.z, c) }; }
+inline m256x4 fmsub(m256x4 a, m256x4 b, __m256 c) { return{ _mm256_fmsub_ps(a.x, b.x, c), _mm256_fmsub_ps(a.y, b.y, c), _mm256_fmsub_ps(a.z, b.z, c), _mm256_fmsub_ps(a.w, b.w, c) }; }
+
+// -(a * b) - c
+inline __m256 fnmsub(__m256 a, __m256 b, __m256 c) { return  _mm256_fnmsub_ps(a, b, c); }
+
+inline m256x2 fnmsub(m256x2 a, m256x2 b, m256x2 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c.x), _mm256_fnmsub_ps(a.y, b.y, c.y) }; }
+inline m256x3 fnmsub(m256x3 a, m256x3 b, m256x3 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c.x), _mm256_fnmsub_ps(a.y, b.y, c.y), _mm256_fnmsub_ps(a.z, b.z, c.z) }; }
+inline m256x4 fnmsub(m256x4 a, m256x4 b, m256x4 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c.x), _mm256_fnmsub_ps(a.y, b.y, c.y), _mm256_fnmsub_ps(a.z, b.z, c.z), _mm256_fnmsub_ps(a.w, b.w, c.w) }; }
+
+inline m256x2 fnmsub(__m256 a, m256x2 b, m256x2 c) { return{ _mm256_fnmsub_ps(a, b.x, c.x), _mm256_fnmsub_ps(a, b.y, c.y) }; }
+inline m256x3 fnmsub(__m256 a, m256x3 b, m256x3 c) { return{ _mm256_fnmsub_ps(a, b.x, c.x), _mm256_fnmsub_ps(a, b.y, c.y), _mm256_fnmsub_ps(a, b.z, c.z) }; }
+inline m256x4 fnmsub(__m256 a, m256x4 b, m256x4 c) { return{ _mm256_fnmsub_ps(a, b.x, c.x), _mm256_fnmsub_ps(a, b.y, c.y), _mm256_fnmsub_ps(a, b.z, c.z), _mm256_fnmsub_ps(a, b.w, c.w) }; }
+
+inline m256x2 fnmsub(m256x2 a, __m256 b, m256x2 c) { return{ _mm256_fnmsub_ps(a.x, b, c.x), _mm256_fnmsub_ps(a.y, b, c.y) }; }
+inline m256x3 fnmsub(m256x3 a, __m256 b, m256x3 c) { return{ _mm256_fnmsub_ps(a.x, b, c.x), _mm256_fnmsub_ps(a.y, b, c.y), _mm256_fnmsub_ps(a.z, b, c.z) }; }
+inline m256x4 fnmsub(m256x4 a, __m256 b, m256x4 c) { return{ _mm256_fnmsub_ps(a.x, b, c.x), _mm256_fnmsub_ps(a.y, b, c.y), _mm256_fnmsub_ps(a.z, b, c.z), _mm256_fnmsub_ps(a.w, b, c.w) }; }
+
+inline m256x2 fnmsub(m256x2 a, m256x2 b, __m256 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c), _mm256_fnmsub_ps(a.y, b.y, c) }; }
+inline m256x3 fnmsub(m256x3 a, m256x3 b, __m256 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c), _mm256_fnmsub_ps(a.y, b.y, c), _mm256_fnmsub_ps(a.z, b.z, c) }; }
+inline m256x4 fnmsub(m256x4 a, m256x4 b, __m256 c) { return{ _mm256_fnmsub_ps(a.x, b.x, c), _mm256_fnmsub_ps(a.y, b.y, c), _mm256_fnmsub_ps(a.z, b.z, c), _mm256_fnmsub_ps(a.w, b.w, c) }; }
 
 /*
 	Convenience versions for promoting single float operands to packed floats
@@ -375,6 +448,29 @@ inline m256x2 pow_ps(m256x2 a, m256x2 b) { return m256x2{ _mm256_pow_ps(a.x, b.x
 inline m256x3 pow_ps(m256x3 a, m256x3 b) { return m256x3{ _mm256_pow_ps(a.x, b.x), _mm256_pow_ps(a.y, b.y), _mm256_pow_ps(a.z, b.z) }; }
 inline m256x4 pow_ps(m256x4 a, m256x4 b) { return m256x4{ _mm256_pow_ps(a.x, b.x), _mm256_pow_ps(a.y, b.y), _mm256_pow_ps(a.z, b.z), _mm256_pow_ps(a.w, b.w) }; }
 
+inline __m256 sincos_ps(__m256* p_cos, __m256 v1) { return _mm256_sincos_ps(p_cos, v1); }
+
+inline __m256 approx_exp_ps(__m256 a)
+{ 
+	// calc (1 + a / 32) ^ 32
+	// 1./32. = 0.03125
+	// ajustment: 1./32.67 = 0.0306091215182124
+
+	// 16 factors: 1./16.68 = 0.05995203836930455f
+	//__m256 b = _mm256_fmadd_ps(a, _mm256_set1_ps(0.0306091215182124f), _mm256_set1_ps(1.f));  // (1.f + a * 0.0306091215182124f); // 32 factor approx
+	__m256 b = _mm256_fmadd_ps(a, _mm256_set1_ps(0.05995203836930455f), _mm256_set1_ps(1.f));  // (1.f + a * 0.05995203836930455f); // 16 factor approx
+	__m256 b2  = mul(b, b);
+	__m256 b4  = mul(b2, b2);
+	__m256 b8  = mul(b4, b4);
+	__m256 b16 = mul(b8, b8); // 16 factor approx, max abs error about about 0.008
+	//__m256 b32 = mul(b16, b16); // should have max abs error of about 0.004 from -10 to 0
+	return b16;
+}
+
+inline m256x2 approx_exp_ps(m256x2 a) { return m256x2{ approx_exp_ps(a.x), approx_exp_ps(a.y) }; }
+inline m256x3 approx_exp_ps(m256x3 a) { return m256x3{ approx_exp_ps(a.x), approx_exp_ps(a.y), approx_exp_ps(a.z) }; }
+inline m256x4 approx_exp_ps(m256x4 a) { return m256x4{ approx_exp_ps(a.x), approx_exp_ps(a.y), approx_exp_ps(a.z), approx_exp_ps(a.w) }; }
+
 /*
 	Loads and stores
 */
@@ -559,20 +655,20 @@ inline m256x4 operator/(f32 c, m256x4 v) { return div(c, v); }
 	Logical operators
 */
 
-inline __m256 operator|(__m256 u, __m256 v) { return bitwise_or(u, v); }
-inline __m256 operator&(__m256 u, __m256 v) { return bitwise_and(u, v); }
-inline __m256 operator||(__m256 u, __m256 v) { return bitwise_or(u, v); }
+inline __m256 operator| (__m256 u, __m256 v) { return bitwise_or(u, v);  }
+inline __m256 operator& (__m256 u, __m256 v) { return bitwise_and(u, v); }
+inline __m256 operator||(__m256 u, __m256 v) { return bitwise_or(u, v);  }
 inline __m256 operator&&(__m256 u, __m256 v) { return bitwise_and(u, v); }
-inline __m256 operator^(__m256 u, __m256 v) { return bitwise_xor(u, v); }
-inline __m256 operator~(__m256 u) { return bitwise_not(u); }
-inline __m256 operator!(__m256 u) { return bitwise_not(u); }
+inline __m256 operator^ (__m256 u, __m256 v) { return bitwise_xor(u, v); }
+inline __m256 operator~ (__m256 u) { return bitwise_not(u); }
+inline __m256 operator! (__m256 u) { return bitwise_not(u); }
 
 inline __m256 operator-(__m256 u) { return signflip_ps(u); }
 inline m256x2 operator-(m256x2 u) { return signflip_ps(u); }
 inline m256x3 operator-(m256x3 u) { return signflip_ps(u); }
 inline m256x4 operator-(m256x4 u) { return signflip_ps(u); }
 
-inline __m256& operator|=(__m256& u, __m256 v) { return u = bitwise_or(u, v); }
+inline __m256& operator|=(__m256& u, __m256 v) { return u = bitwise_or(u, v);  }
 inline __m256& operator&=(__m256& u, __m256 v) { return u = bitwise_and(u, v); }
 inline __m256& operator^=(__m256& u, __m256 v) { return u = bitwise_xor(u, v); }
 
@@ -597,11 +693,18 @@ inline __m256 len(m256x4 u) { return sroot(dot(u, u)); }
 template<typename T, typename S> inline S lenSqrd(T u) { return dot(u, u); }
 //template<typename T> inline T normalize(T v) { return mul(v, rcp(len(v))); }
 //template<typename T> inline T normalize(T v) { return div(v, sroot(dot(v, v))); }
-template<typename T> inline T normalize(T v) { return mul(v, rsroot(dot(v, v))); }
+//template<typename T> inline T normalize(T v) { return mul(v, rsroot(dot(v, v))); }
 
-template<> inline m256x2 normalize(m256x2 v) { return mul(v, set1_ps(1.f) / sroot(dot(v, v))); }
-template<> inline m256x3 normalize(m256x3 v) { return mul(v, set1_ps(1.f) / sroot(dot(v, v))); }
-template<> inline m256x4 normalize(m256x4 v) { return mul(v, set1_ps(1.f) / sroot(dot(v, v))); }
+
+// It seems like using rsroot and multiply instead of divide is not accurate enough to avoid artifacts
+// Therefore reverting to using a straightforward implementation, although perhaps slower implementation
+inline f32x2 normalize(f32x2 v) { return div(v, sroot(dot(v, v))); }
+inline f32x3 normalize(f32x3 v) { return mul(v, 1.f / sroot(dot(v, v))); }
+inline f32x4 normalize(f32x4 v) { return mul(v, 1.f / sroot(dot(v, v))); }
+
+inline m256x2 normalize(m256x2 v) { return div(v, sroot(dot(v, v))); }
+inline m256x3 normalize(m256x3 v) { return mul(v, set1_ps(1.f) / sroot(dot(v, v))); }
+inline m256x4 normalize(m256x4 v) { return mul(v, set1_ps(1.f) / sroot(dot(v, v))); }
 
 template<typename T, typename S> inline T lerp(T u, T v, S x) { return add(u, mul(x, sub(v, u))); }
 template<typename T> inline T proj(T u, T v) { return mul((dot(u, v) / dot(v, v)), v); }
@@ -609,7 +712,16 @@ template<typename T> inline T rjec(T u, T v) { return sub(u, proj(u, v)); }
 template<typename T> inline T rflc(T u, T v) { return sub(mul(2., proj(u, v)), u); }
 
 inline f32x3 cross(f32x3 u, f32x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
-inline m256x3 cross(m256x3 u, m256x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
+//inline m256x3 cross(m256x3 u, m256x3 v) { return { u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x }; }
+inline m256x3 cross(m256x3 u, m256x3 v)
+{ 
+	return
+	{ 
+		fmsub(u.y, v.z, u.z * v.y),
+		fmsub(u.z, v.x, u.x * v.z),
+		fmsub(u.x, v.y, u.y * v.x)
+	};
+}
 
 //https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/refract.xhtml
 inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)

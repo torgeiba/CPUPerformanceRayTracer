@@ -58,7 +58,7 @@ static bool QueueWorkStillInProgress(work_queue* Queue)
 }
 void CompleteAllWork(work_queue* Queue)
 {
-	while (QueueWorkStillInProgress(Queue));
+	while (QueueWorkStillInProgress(Queue))
 	{
 		DoNextWorkQueueEntry(Queue);
 	}

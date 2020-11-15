@@ -4,7 +4,7 @@
 
 // Application
 #if PERFORMANCE_PROFILING_BUILD
-	#define RENDER_OFFLINE 0
+	#define RENDER_OFFLINE 1
 #else 
 	#define RENDER_OFFLINE 0
 #endif
@@ -54,12 +54,15 @@
 
 // Rendering
 #define USE_ENV_MAP 1
+#define USE_ENV_CUBEMAP 1
 #define OUTPUT_TO_SCREEN !RENDER_OFFLINE
-#define USE_NON_TEMPORAL_STORE 1
+#define USE_NON_TEMPORAL_STORE 0
 
 #define VISUALIZE_TILES 0
 
 #define USE_FAST_APPROXIMATE_GAMMA 1
+#define USE_FAST_APPROXIMATE_EXP 1
+#define USE_UNIT_VECTOR_REJECTION_SAMPLING 1
 
 // Threading / Work Queue
 #define NUM_THREADS 8
