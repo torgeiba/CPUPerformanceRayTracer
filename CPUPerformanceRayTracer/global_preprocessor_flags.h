@@ -1,6 +1,6 @@
 #pragma once
 
-#define PERFORMANCE_PROFILING_BUILD 1
+#define PERFORMANCE_PROFILING_BUILD 0
 
 // Application
 #if PERFORMANCE_PROFILING_BUILD
@@ -57,16 +57,29 @@
 #define USE_ENV_CUBEMAP 1
 #define OUTPUT_TO_SCREEN !RENDER_OFFLINE
 #define USE_NON_TEMPORAL_STORE 0
-
-#define VISUALIZE_TILES 0
+#define ACCUMULATE_FRAMES 1
 
 #define USE_FAST_APPROXIMATE_GAMMA 1
 #define USE_FAST_APPROXIMATE_EXP 1
 #define USE_UNIT_VECTOR_REJECTION_SAMPLING 1
+#define USE_RANDOM_JITTER_TEXTURE_SAMPLING 1
 
 // Threading / Work Queue
 #define NUM_THREADS 8
 
-#define NUM_TILES_X 8	
-#define NUM_TILES_Y 12
+// Tiling
+#define VISUALIZE_TILES 0
+//#define NUM_TILES_X 8	
+//#define NUM_TILES_Y 12
 
+// 2 x m256 = 3 cache lines
+// 1280px / (2 * 8px) = 80
+// factors(80) = 2 * 2 * 2 * 2 * 5
+
+// factors(80) = 2 * 2 * 2 * 2 * 5
+// factors(720) = 2 * 2 * 2 * 2 * * 3 * 3 * 5
+// common_factors(80, 720) = 2 * 2 * 2 * 2 * 5
+// multiply odd factors to retain even pow2 tile sizes
+// 5 and 3*3*5
+#define NUM_TILES_X 10	
+#define NUM_TILES_Y 15

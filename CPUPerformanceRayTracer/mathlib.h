@@ -727,9 +727,8 @@ inline m256x3 cross(m256x3 u, m256x3 v)
 inline m256x3 rfrct(m256x3 v /*unit len*/, m256x3 n /*unit len*/, __m256 ior)
 {
 	__m256 vdotn = dot(v, n);
-	__m256 k = 1.f - ior * ior * (1.f - vdotn * vdotn);
-	//if (k < 0.0) return{ 0.f };
-	m256x3 Result = (ior * v) -  (ior * vdotn + sroot(k)) * n;
+	__m256 k = fnmadd(ior, ior * fnmadd(vdotn, vdotn, set1_ps(1.f)), set1_ps(1.f));
+	m256x3 Result = fmsub(ior, v, fmadd(ior, vdotn, sroot(k)) * n);
 	__m256 RetZeroCond = (k < set1_ps(0.f));
 	Result = blend3_ps(Result, set1x3_ps(0.f, 0.f, 0.f), RetZeroCond);
 	return Result;

@@ -270,7 +270,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOUseProfile|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v3.cpp" />
+    <ClCompile Include="demofox_path_tracing_optimization_v3.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_optimization_v4.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
@@ -332,6 +335,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="mathlib.cpp" />
+    <ClCompile Include="mathutils.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="texture.cpp" />
@@ -361,7 +365,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOUseProfile|x64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_optimization_v3.h" />
+    <ClInclude Include="demofox_path_tracing_optimization_v3.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_optimization_v4.h" />
     <ClInclude Include="demofox_path_tracing_scalar.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
@@ -425,6 +432,7 @@
     <ClInclude Include="global_preprocessor_flags.h" />
     <ClInclude Include="intrinsic_utils.h" />
     <ClInclude Include="mathlib.h" />
+    <ClInclude Include="mathutils.h" />
     <ClInclude Include="old_code.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>

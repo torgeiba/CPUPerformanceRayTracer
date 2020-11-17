@@ -117,9 +117,9 @@ static m256x3 RandomUnitVectorRejectionSample_ps(__m256i& state)
     __m256 uvw_d2 = fmadd(w, w, uv_d2);
 
     //__m256 bValid = uv_d2 <= set1_ps(1.f);
-    
+
     // if not valid
-     m256x3 uvw = m256x3{ u, v, w } * rsroot(uvw_d2);
+    m256x3 uvw = m256x3{ u, v, w } *rsroot(uvw_d2);
 
     // if valid 
     //__m256 opposide_leg = sroot(1.f - uv_d2);
@@ -127,7 +127,7 @@ static m256x3 RandomUnitVectorRejectionSample_ps(__m256i& state)
     //__m256 y = 2.f * v * opposide_leg; // sin_ps(a);
     //__m256 z = 1.f - 2.f * uv_d2;
 
-     return uvw; // blend3_ps(uvw, m256x3{ x, y, z }, bValid);
+    return uvw; // blend3_ps(uvw, m256x3{ x, y, z }, bValid);
 }
 
 //static
@@ -432,16 +432,16 @@ static __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 i
     __m256 cond = (n1 > n2);
 
     __m256 n = n1 / n2;
-    __m256 sinT2 = n * n * (ConstOne - cosX * cosX);
+    __m256 sinT2 = n * n * fnmadd(cosX, cosX, ConstOne);
     __m256 newCosX = sroot(ConstOne - sinT2);
     __m256 totalInternalReflection = (sinT2 > ConstOne);
     cosX = blend_ps(cosX, newCosX, cond & !totalInternalReflection);
 
     __m256 x = ConstOne - cosX;
     __m256 x2 = x * x;
-    __m256 ret = r0 + (ConstOne - r0) * x2 * x2 * x;
+    __m256 ret = fmadd((ConstOne - r0) * x2 * x2, x, r0);
     ret = blend_ps(ret, ConstOne, cond & totalInternalReflection);
-    return lerp(f0, f90, ret);
+    return fmadd(ret, sub(f90, f0), f0); //lerp(f0, f90, ret);
 }
 
 #if 0
@@ -592,7 +592,7 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
     __m256 rayDirDotN = dot(rayDir, normal);
     __m256 rayOffsetDotN = dot(rayOffset, normal);
     __m256 dist = rayOffsetDotN / rayDirDotN;
-    m256x3 hit = (dist * rayDir) - rayOffset;
+    m256x3 hit = fmsub(dist, rayDir, rayOffset);
 
     // Bot tri
     __m256 A0 = dot(hit, quad.NxV01); // v0, v1, v2, a, b, c
@@ -639,29 +639,27 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
 static
 __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 sphere)
 {
-    __m256 early_return = MaskFalse;
-
     // get the vector from the center of this sphere to where the ray begins.
     m256x3 spherexyz = m256x3{ sphere.x, sphere.y, sphere.z };
     m256x3 m = rayPos - spherexyz;
 
     //get the dot product of the above vector and the ray's vector
     __m256 b = dot(m, rayDir);
-    __m256 c = dot(m, m) - sphere.w * sphere.w;
+    __m256 c = fnmadd(sphere.w, sphere.w, dot(m, m));
 
     //exit if r's origin outside s (c > 0) and r pointing away from s (b > 0)
     __m256 cond = c > ConstZero && b > ConstZero;
-    early_return = cond;// blend_ps(early_return, MaskTrue, cond);
+    //early_return = cond;// blend_ps(early_return, MaskTrue, cond);
 
-    if (all_set(early_return)) return MaskFalse;
+    if (all_set(cond)) return MaskFalse;
 
     //calculate discriminant
     //__m256 discr = b * b - c;
     __m256 discr = fmsub(b, b, c);
 
     //a negative discriminant corresponds to ray missing sphere
-    early_return = blend_ps(early_return, MaskTrue, discr < ConstZero);
-
+    //early_return = blend_ps(early_return, MaskTrue, discr < ConstZero);
+    __m256 early_return = (discr < ConstZero) || cond;
     if (all_set(early_return)) return MaskFalse;
 
     //ray now found to intersect sphere, compute smallest t value of intersection
@@ -677,7 +675,7 @@ __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 s
     info.dist = blend_ps(info.dist, dist, check);
     info.normal = blend3_ps(
         info.normal,
-        (normalize((rayDir * dist) + m)) * blend_ps(ConstOne, -ConstOne, fromInside),
+        (normalize(fmadd(rayDir, dist, m))) * blend_ps(ConstOne, -ConstOne, fromInside),
         check);
 
     return check;
@@ -706,6 +704,7 @@ void TestSceneTrace(Scene& scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hit
     hitInfo.material = GatherMaterials(scene, hitInfo.materialIndex);
 }
 
+#if 1
 static
 m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/, texture& Texture)
 {
@@ -741,17 +740,199 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         {
             m256x3 SampleDir = newRayDir;
 #if USE_ENV_MAP
-    #if USE_ENV_CUBEMAP
+#if USE_ENV_CUBEMAP
 #if USE_RANDOM_JITTER_TEXTURE_SAMPLING
             m256x3 ambient = CubemapTextureSampleRandom(Texture, SampleDir, rngState);
 #else
             m256x3 ambient = CubemapTextureSampleBilinear(Texture, SampleDir);
 #endif
-    #else
+#else
             SampleDir.x = -newRayDir.x;
             SampleDir.z = -newRayDir.z;
             m256x3 ambient = EquirectangularTextureSampleBilinear(Texture, SampleDir);
-    #endif
+#endif
+#else
+            m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
+#endif
+            __m256 cond = (!(prevShouldBreak) && shouldBreak);
+            // if this is the fist time we hit this case, we add the ambient term once
+            ret = blend3_ps(newRet, fmadd(ambient, newThroughput, newRet), cond);
+            newRet = blend3_ps(newRet, ret, cond);
+        }
+        shouldBreak = prevShouldBreak || shouldBreak;
+
+        if (all_set(shouldBreak)) break;
+
+#if USE_FAST_APPROXIMATE_EXP
+        newThroughput = blend3_ps(newThroughput, newThroughput * approx_exp_ps(-hitInfo.material.refractionColor * hitInfo.dist), hitInfo.fromInside); // if (hitInfo.fromInside)
+#else
+        newThroughput = blend3_ps(newThroughput, newThroughput * exp_ps(-hitInfo.material.refractionColor * hitInfo.dist), hitInfo.fromInside); // if (hitInfo.fromInside)
+#endif
+
+        // get the pre-fresnel chances
+        __m256 specularChance = hitInfo.material.specularChance;
+        __m256 refractionChance = hitInfo.material.refractionChance;
+
+        __m256 rayProbability = ConstOne;
+
+        {
+            __m256 hasSpecularChance = specularChance > ConstZero;
+
+#if 1
+            __m256 n1 = blend_ps(ConstOne, hitInfo.material.IOR, hitInfo.fromInside);
+            __m256 n2 = blend_ps(hitInfo.material.IOR, ConstOne, hitInfo.fromInside);
+            __m256 f0 = hitInfo.material.specularChance;
+            __m256 f90 = ConstOne;
+            __m256 newSpecularChance = FresnelReflectAmount(n1, n2, hitInfo.normal, newRayDir, f0, f90);
+#else
+            __m256 newSpecularChance = specularChance;
+#endif
+            __m256 chanceMultiplier = (1.f - newSpecularChance) / (1.f - hitInfo.material.specularChance);
+
+            specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
+            refractionChance = blend_ps(refractionChance, refractionChance * chanceMultiplier, hasSpecularChance);
+        }
+
+        __m256 raySelectRoll = Randomf3201_ps(rngState);
+
+        __m256 doSpecularMask = (specularChance > ConstZero) && (raySelectRoll < specularChance);
+        __m256 doRefractionMask = (!doSpecularMask) && (refractionChance > ConstZero) && (raySelectRoll < (specularChance + refractionChance));
+        __m256 doDiffuseMask = (!doSpecularMask) && (!doRefractionMask);
+
+        //__m256 doSpecular   = blend_ps(ConstZero, ConstOne, doSpecularMask  );
+        //__m256 doRefraction = blend_ps(ConstZero, ConstOne, doRefractionMask);
+
+        __m256 diffuseChance = max_ps(1.f - (specularChance + refractionChance), ConstZero);
+
+        rayProbability = blend_ps(rayProbability, specularChance, doSpecularMask);
+        rayProbability = blend_ps(rayProbability, refractionChance, doRefractionMask);
+        rayProbability = blend_ps(rayProbability, diffuseChance, doDiffuseMask);
+        rayProbability = max_ps(rayProbability, set1_ps(0.001f));
+
+        // update the ray position
+        __m256 doRefractionSign = blend_ps(ConstOne, -ConstOne, doRefractionMask); //1.f - (2.f * doRefraction);
+        newRayPos = fmadd(c_rayPosNormalNudge * doRefractionSign, hitInfo.normal, fmadd(newRayDir, hitInfo.dist, newRayPos));
+
+        // calculate new ray direction, in a cosine weighted hemisphere oriented at normal
+        {
+
+#if USE_UNIT_VECTOR_REJECTION_SAMPLING
+            m256x3 diffuseRayDir = normalize(hitInfo.normal + RandomUnitVectorRejectionSample_ps(rngState));
+#else
+            m256x3 diffuseRayDir = normalize(hitInfo.normal + RandomUnitVector_ps(rngState));
+#endif
+
+
+            // reflect
+            m256x3 specularRayDir = fnmadd(2.f * dot(newRayDir, hitInfo.normal), hitInfo.normal, newRayDir);
+            __m256 specularRoughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
+            specularRayDir = /*normalize*/(fmadd(specularRoughnessSqrd, sub(diffuseRayDir, specularRayDir), specularRayDir)); // 
+
+            __m256 IOR = blend_ps(1.0f / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside);
+            __m256 refractionRoughnessSquared = hitInfo.material.refractionRoughness * hitInfo.material.refractionRoughness;
+            m256x3 refractionRayDir = rfrct(newRayDir, hitInfo.normal, IOR);
+
+#if USE_UNIT_VECTOR_REJECTION_SAMPLING
+            m256x3 newRefractionDir = normalize(RandomUnitVectorRejectionSample_ps(rngState) - hitInfo.normal);
+            m256x3 interpolatedRefractionDir = fmadd(refractionRoughnessSquared, sub(newRefractionDir, refractionRayDir), refractionRayDir);
+            refractionRayDir = /*normalize*/(interpolatedRefractionDir); //lerp(T u, T v, S x) { return add(refractionRayDir, mul(refractionRoughnessSquared, sub(newRefractionDir, refractionRayDir)));
+            
+#else
+            refractionRayDir = normalize(lerp(refractionRayDir, normalize(RandomUnitVector_ps(rngState) - hitInfo.normal), refractionRoughnessSquared));
+#endif
+
+#if 0
+            newRayDir = normalize(lerp(diffuseRayDir, specularRayDir, doSpecular));
+            newRayDir = normalize(lerp(newRayDir, refractionRayDir, doRefraction));
+#else
+            newRayDir = blend3_ps(diffuseRayDir, specularRayDir, doSpecularMask);
+            newRayDir = blend3_ps(newRayDir, refractionRayDir, doRefractionMask);
+            newRayDir = normalize(newRayDir);
+#endif
+        }
+
+        // Add in emissive lighting
+        newRet = fmadd(hitInfo.material.emissive, newThroughput, newRet);
+
+        // update the colorMultiplier
+#if 0
+        m256x3 colorFactor = lerp(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecular);
+        newThroughput = blend3_ps(newThroughput, newThroughput * colorFactor, doRefraction == ConstZero);
+#else
+        m256x3 colorFactor = blend3_ps(hitInfo.material.albedo, hitInfo.material.specularColor, doSpecularMask);
+        newThroughput = blend3_ps(newThroughput, newThroughput * colorFactor, !doRefractionMask);
+#endif
+        // since we chose randomly between diffuse, specular, refract,
+        // we need to account for the times we didn't do one or the other.
+        newThroughput = newThroughput * (1.f / rayProbability);
+
+        // Russian Roulette
+        // As the throughput gets smaller, the ray is more likely to get terminated early.
+        // Survivors have their value boosted to make up for fewer samples being in the average.
+        {
+            __m256 p = max_ps(newThroughput.x, max_ps(newThroughput.y, newThroughput.z));
+            __m256 rouletteTermination = (Randomf3201_ps(rngState) > p);
+
+            // Add the energy we 'lose' by randomly terminating paths
+            newThroughput = blend3_ps(newThroughput * (1.0f / p), newThroughput, rouletteTermination);
+        }
+
+        // Conditionally write back persistent (non-local) values
+        ret = blend3_ps(newRet, ret, shouldBreak);
+        throughput = blend3_ps(newThroughput, throughput, shouldBreak);
+        rayPos = blend3_ps(newRayPos, rayPos, shouldBreak);
+        rayDir = blend3_ps(newRayDir, rayDir, shouldBreak);
+    }
+
+    return ret; // return pixel color
+}
+#else
+static
+m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/, texture& Texture)
+{
+    // initialize
+    m256x3 ret = set1x3_ps(0.0f, 0.0f, 0.0f);
+    m256x3 throughput = set1x3_ps(1.0f, 1.0f, 1.0f);
+    m256x3 rayPos = startRayPos;
+    m256x3 rayDir = startRayDir;
+
+    __m256 shouldBreak = MaskFalse;
+    for (i32 bounceIndex = 0; (bounceIndex <= c_numBounces) && !(all_set(shouldBreak)); ++bounceIndex)
+    {
+        // shoot a ray out into the world
+        SRayHitInfo hitInfo;
+        {
+            hitInfo.fromInside = MaskFalse;
+            hitInfo.dist = set1_ps(c_superFar);
+            hitInfo.normal = set1x3_ps(0.f, 0.f, 0.f);
+            //hitInfo.material = GetZeroedMaterial();
+            hitInfo.materialIndex = set1_epi(0);
+        }
+
+        TestSceneTrace(scene, rayPos, rayDir, hitInfo, shouldBreak);
+
+        m256x3 newRet = ret;
+        m256x3 newThroughput = throughput;
+        m256x3 newRayPos = rayPos;
+        m256x3 newRayDir = rayDir;
+
+        // if the ray missed, we are done
+        __m256 prevShouldBreak = shouldBreak;
+        shouldBreak = (hitInfo.dist == set1_ps(c_superFar));
+        {
+            m256x3 SampleDir = newRayDir;
+#if USE_ENV_MAP
+#if USE_ENV_CUBEMAP
+#if USE_RANDOM_JITTER_TEXTURE_SAMPLING
+            m256x3 ambient = CubemapTextureSampleRandom(Texture, SampleDir, rngState);
+#else
+            m256x3 ambient = CubemapTextureSampleBilinear(Texture, SampleDir);
+#endif
+#else
+            SampleDir.x = -newRayDir.x;
+            SampleDir.z = -newRayDir.z;
+            m256x3 ambient = EquirectangularTextureSampleBilinear(Texture, SampleDir);
+#endif
 #else
             m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
 #endif
@@ -884,6 +1065,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 
     return ret; // return pixel color
 }
+#endif
 
 static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, texture& Texture)
 {
@@ -918,7 +1100,7 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
     // raytrace for this pixel
     m256x3 color{ ConstZero, ConstZero, ConstZero };
     for (i32 index = 0; index < c_numRendersPerFrame; ++index)
-        color += (GetColorForRay(camera.Position, rayDir, rngState_epi, Texture) * (1.f / (c_numRendersPerFrame)));
+        color = fmadd(GetColorForRay(camera.Position, rayDir, rngState_epi, Texture), set1_ps(1.f / (c_numRendersPerFrame)), color);
 
     return color;
 }
@@ -1367,7 +1549,7 @@ work_queue* MakeWorkQueue_Custom()
         DesiredAccess
     );
 
-    for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS-1; ThreadIndex++)
+    for (i32 ThreadIndex = 0; ThreadIndex < NUM_THREADS - 1; ThreadIndex++)
     {
         DWORD ThreadID;
         HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc_Custom, Queue, 0, &ThreadID);
@@ -1433,7 +1615,7 @@ void CompleteAllWork_Custom(work_queue* Queue)
     Queue->CompletionGoal = 0;
 }
 
-void DemofoxRenderOptV3(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+void DemofoxRenderOptV4(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
     void* ScreenBufferData
 )

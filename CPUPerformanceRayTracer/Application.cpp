@@ -25,7 +25,8 @@
 //#include "demofox_path_tracing_simt_textured.h"
 //#include "demofox_path_tracing_v3_redo.h"
 //#include "demofox_path_tracing_optimization_v2.h"
-#include "demofox_path_tracing_optimization_v3.h"
+//#include "demofox_path_tracing_optimization_v3.h"
+#include "demofox_path_tracing_optimization_v4.h"
 
 #include "global_preprocessor_flags.h"
 
@@ -454,7 +455,7 @@ void ApplicationState::Render()
 	i32 NumTilesY = NUM_TILES_Y;
 	i32 TileWidth = Width / NumTilesX;
 	i32 TileHeight = Height / NumTilesY;
-	DemofoxRenderOptV3(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
+	DemofoxRenderOptV4(RenderTarget, Width, Height, NumTilesX, NumTilesY, TileWidth, TileHeight, 3, Texture, Buffer->Memory);
 
 	HasRenderedThisFrame = true;
 }

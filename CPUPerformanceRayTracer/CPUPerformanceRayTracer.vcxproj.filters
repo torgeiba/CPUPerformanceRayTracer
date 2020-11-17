@@ -102,10 +102,16 @@
     <ClCompile Include="demofox_path_tracing_optimization_v1.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v3.cpp">
+    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp">
+      <Filter>Source Files\Old Rendering Code</Filter>
+    </ClCompile>
+    <ClCompile Include="mathutils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="demofox_path_tracing_optimization_v2.cpp">
+    <ClCompile Include="demofox_path_tracing_optimization_v4.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demofox_path_tracing_optimization_v3.cpp">
       <Filter>Source Files\Old Rendering Code</Filter>
     </ClCompile>
   </ItemGroup>
@@ -188,10 +194,16 @@
     <ClInclude Include="global_preprocessor_flags.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_optimization_v3.h">
+    <ClInclude Include="demofox_path_tracing_optimization_v2.h">
+      <Filter>Header Files\Old Rendering Code</Filter>
+    </ClInclude>
+    <ClInclude Include="mathutils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="demofox_path_tracing_optimization_v2.h">
+    <ClInclude Include="demofox_path_tracing_optimization_v4.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="demofox_path_tracing_optimization_v3.h">
       <Filter>Header Files\Old Rendering Code</Filter>
     </ClInclude>
   </ItemGroup>

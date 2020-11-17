@@ -1,6 +1,7 @@
 #pragma once
 
 #include "texture.h"
+#include "mathutils.h"
 
 f32x3 TexelFetch(texture texture, i32 Row, i32 Col)
 {
@@ -72,6 +73,16 @@ m256x3 TexelSampleBilinear(texture texture, m256x2 UVs)
 	m256x3 C1 = lerp(C01, C11, dU);
 	m256x3 C = lerp(C0, C1, dV);
 	return C;
+}
+
+m256x3 TexelSampleRandom(texture texture, m256x2 UVs, __m256i& state)
+{
+	__m256 Row = fmsub(UVs.y, set1_ps((f32)texture.Height), UVs.y);
+	__m256 Col = fmsub(UVs.x, set1_ps((f32)texture.Width ), UVs.x);
+	__m256 RandRow = round_floor(Row + Randomf3201_ps(state));
+	__m256 RandCol = round_floor(Col + Randomf3201_ps(state));
+	__m256i Rand_Idx = 3 * to_epi32(fmadd(RandRow, set1_ps((f32)(texture.Width)), RandCol));
+	return GatherRGB((f32*)texture.Data, Rand_Idx);
 }
 
 f32x3 EquirectangularTextureSample(texture texture, f32x3 Direction)
@@ -306,7 +317,72 @@ m256x3 CubemapTextureSampleBilinear(texture cubemap, m256x3 Directions)
 	uv = positiveQuadrant;
 	uv.y = saturate(fmadd(uv.y, set1_ps(1.f / 6.f), vOffset));
 
-	return TexelSampleBilinear(cubemap, uv);	
+	return TexelSampleBilinear(cubemap, uv);
+}
+
+m256x3 CubemapTextureSampleRandom(texture cubemap, m256x3 Directions, __m256i& randstate)
+{
+	m256x2 uv;
+	m256x3 absDir = abs_ps(Directions);
+
+	m256x2 faceUV;
+	__m256 vOffset;
+
+	{
+		// condxgty && condxgtz && x >= 0  -> px
+		// condxgty && condxgtz && x  < 0  -> nx
+		__m256 condxgtzero = Directions.x >= set1_ps(0.f);
+		__m256 positiveXOffset = set1_ps(0.f /*/ 6.f*/);
+		__m256 negativeXOffset = set1_ps(0.166666666666667f);
+		faceUV.x = blend_ps(Directions.z, -Directions.z, condxgtzero);
+		faceUV.y = Directions.y;
+		vOffset = blend_ps(negativeXOffset, positiveXOffset, condxgtzero);
+	}
+
+	{
+		// !condxgty && condygtz &&  y >= 0  -> py
+		// !condxgty && condygtz &&  y  < 0  -> ny
+		__m256 condygtzero = Directions.y >= set1_ps(0.f);
+		__m256 positiveYOffset = set1_ps(2.f * 0.166666666666667f);
+		__m256 negativeYOffset = set1_ps(3.f * 0.166666666666667f);
+		__m256 Y_vOffset = blend_ps(negativeYOffset, positiveYOffset, condygtzero);
+		m256x2 Y_faceUV;
+		Y_faceUV.x = Directions.x;
+		Y_faceUV.y = blend_ps(Directions.z, -Directions.z, condygtzero);
+
+		__m256 condygtx = absDir.y >= absDir.x;
+		vOffset = blend_ps(vOffset, Y_vOffset, condygtx);
+		faceUV = blend2_ps(faceUV, Y_faceUV, condygtx);
+	}
+
+	{
+		// !condxgtz && !condygtz &&  z >= 0  -> pz
+		// !condxgtz && !condygtz &&  z  < 0  -> nz
+		__m256 condzgtzero = Directions.z >= set1_ps(0.f);
+		__m256 positiveZOffset = set1_ps(4.f * 0.166666666666667f);
+		__m256 negativeZOffset = set1_ps(5.f * 0.166666666666667f);
+
+		__m256 Z_vOffset = blend_ps(negativeZOffset, positiveZOffset, condzgtzero);
+		m256x2 Z_faceUV;
+		Z_faceUV.x = blend_ps(-Directions.x, Directions.x, condzgtzero);
+		Z_faceUV.y = Directions.y;
+
+		__m256 condzgtx = absDir.z >= absDir.x;
+		__m256 condzgty = absDir.z >= absDir.y;
+		__m256 condMaxZ = condzgtx && condzgty;
+		vOffset = blend_ps(vOffset, Z_vOffset, condMaxZ);
+		faceUV = blend2_ps(faceUV, Z_faceUV, condMaxZ);
+	}
+
+	__m256 maxAbsDir = max_ps(absDir.x, max_ps(absDir.y, absDir.z));
+	m256x2 positiveQuadrant = fmadd(faceUV / maxAbsDir, set1x2_ps(0.5f, 0.5f), set1x2_ps(0.5f, 0.5f));
+
+	positiveQuadrant = saturate(positiveQuadrant);
+
+	uv = positiveQuadrant;
+	uv.y = saturate(fmadd(uv.y, set1_ps(0.166666666666667f), vOffset));
+
+	return TexelSampleRandom(cubemap, uv, randstate);
 }
 
 void BilinearResampleRGB32(i32 InWidth, i32 InHeight, i32 OutWidth, i32 OutHeight, f32x3* InBuffer, f32x3* OutBuffer)

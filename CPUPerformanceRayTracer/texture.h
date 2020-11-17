@@ -27,3 +27,4 @@ m256x3 EquirectangularTextureSampleGather(texture texture, m256x3 Directions);
 m256x3 EquirectangularTextureSampleBilinear(texture texture, m256x3 Directions);
 
 m256x3 CubemapTextureSampleBilinear(texture cubemap, m256x3 Directions);
+m256x3 CubemapTextureSampleRandom(texture cubemap, m256x3 Directions, __m256i& randstate);
