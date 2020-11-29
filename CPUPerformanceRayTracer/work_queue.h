@@ -2,11 +2,12 @@
 
 #include "utils.h"
 #include "windows.h"
+#include "global_preprocessor_flags.h"
 
 #define WORK_QUEUE_CALLBACK(name) void name(struct work_queue *Queue, void *Data)
 typedef WORK_QUEUE_CALLBACK(work_queue_callback);
 
-struct work_queue_entry
+struct CACHE_ALIGN work_queue_entry
 {
 	work_queue_callback* Callback;
 	void* Data;

@@ -60,6 +60,7 @@
 #define ACCUMULATE_FRAMES 1
 
 #define USE_FAST_APPROXIMATE_GAMMA 1
+#define USE_FAST_APPROXIMATE_ACES_TONEMAP 1
 #define USE_FAST_APPROXIMATE_EXP 1
 #define USE_UNIT_VECTOR_REJECTION_SAMPLING 1
 #define USE_RANDOM_JITTER_TEXTURE_SAMPLING 1
@@ -83,3 +84,26 @@
 // 5 and 3*3*5
 #define NUM_TILES_X 10	
 #define NUM_TILES_Y 15
+
+
+
+
+// Memory Alignment settings
+// See: https://docs.microsoft.com/en-us/cpp/cpp/align-cpp?view=msvc-160
+
+#define CACHE_LINE_SIZE_BYTES  64
+#define CACHE_ALIGN __declspec(align(CACHE_LINE_SIZE_BYTES))
+
+#define THREAD_LOCAL_STORAGE __declspec(thread)
+
+// https://docs.microsoft.com/en-us/cpp/cpp/extension-restrict?view=msvc-160
+#define RESTRICT_PTR __restrict
+
+// https://docs.microsoft.com/en-us/cpp/cpp/restrict?view=msvc-160
+#define RESTRICT_FUNC __declspec(restrict)
+
+
+// TODO: This causes memory access violation, figure out why.
+// Tested: Does not seem to make a difference between _aligned_malloc and malloc
+// VirtualAlloc works fine, but that allocates 4k pages minimum, so it might hide some out of bounds issue somewhere
+#define USE_ALIGNED_MALLOC 0

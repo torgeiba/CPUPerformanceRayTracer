@@ -81,7 +81,7 @@ ThreadProc(LPVOID lpParameter)
 
 work_queue* MakeWorkQueue()
 {
-	work_queue* Queue = new work_queue{};
+	work_queue* Queue = (work_queue * )_aligned_malloc(sizeof(work_queue), CACHE_LINE_SIZE_BYTES); //new work_queue{};
 	LPSECURITY_ATTRIBUTES SemaphoreAttributes = 0;
 	LONG InitialCount = 0;
 	LONG MaximumCount = NUM_THREADS;

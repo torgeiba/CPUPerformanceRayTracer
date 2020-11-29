@@ -105,12 +105,20 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 {
 	if (Memory)
 	{
+#if USE_ALIGNED_MALLOC
+		_aligned_free(Memory);
+#else
 		VirtualFree(Memory, 0, MEM_RELEASE); // MEM_DECOMMIT
+#endif
 	}
 
 	if (RenderTarget)
 	{
+#if USE_ALIGNED_MALLOC
+		_aligned_free(RenderTarget);
+#else
 		VirtualFree(RenderTarget, 0, MEM_RELEASE);
+#endif
 	}
 
 	Width = NewWidth;
@@ -129,12 +137,18 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 		Info.bmiHeader.biBitCount = NumChannels * BytesPerChannel * 8; // for DWORD alignment
 		Info.bmiHeader.biCompression = BI_RGB;
 	}
-
+	
 	i32 BitmapMemorySize = Width * Height * BytesPerPixel;
 	i32 RenderTargetSize = Width * Height * 3 * sizeof(f32);
+
+#if USE_ALIGNED_MALLOC
+	Memory = _aligned_malloc(BitmapMemorySize, CACHE_LINE_SIZE_BYTES);
+	RenderTarget = (f32*)_aligned_malloc(RenderTargetSize, CACHE_LINE_SIZE_BYTES);
+#else
 	Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	RenderTarget = (f32*)VirtualAlloc(0, RenderTargetSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	memset(RenderTarget, 0, RenderTargetSize);
+#endif
+	if(RenderTarget != 0) memset(RenderTarget, 0, RenderTargetSize);
 	Pitch = Width * BytesPerPixel;
 }
 

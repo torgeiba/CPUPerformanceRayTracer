@@ -272,6 +272,9 @@
     </ClCompile>
     <ClCompile Include="demofox_path_tracing_optimization_v3.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOUseProfile|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="demofox_path_tracing_optimization_v4.cpp" />
     <ClCompile Include="demofox_path_tracing_scalar.cpp">
@@ -367,6 +370,9 @@
     </ClInclude>
     <ClInclude Include="demofox_path_tracing_optimization_v3.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOProfile|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleasePGOUseProfile|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="demofox_path_tracing_optimization_v4.h" />
     <ClInclude Include="demofox_path_tracing_scalar.h">

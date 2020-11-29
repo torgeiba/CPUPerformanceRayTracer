@@ -3,8 +3,6 @@
 
 #include "intrin.h" // WriteBarrier
 
-#include "global_preprocessor_flags.h"
-
 #include "mathutils.h"
 
 // The minimunm distance a ray must travel before we consider an intersection.
@@ -110,9 +108,9 @@ m256x3 RandomUnitVector_ps(__m256i& state)
 */
 static m256x3 RandomUnitVectorRejectionSample_ps(__m256i& state)
 {
-    __m256 u = 2.0f * Randomf3201_ps(state) - 1.f;
-    __m256 v = 2.0f * Randomf3201_ps(state) - 1.f;
-    __m256 w = 2.0f * Randomf3201_ps(state) - 1.f;
+    __m256 u = fmsub(set1_ps(2.0f), Randomf3201_ps(state), set1_ps(1.f));
+    __m256 v = fmsub(set1_ps(2.0f), Randomf3201_ps(state), set1_ps(1.f));
+    __m256 w = fmsub(set1_ps(2.0f), Randomf3201_ps(state), set1_ps(1.f));
     __m256 uv_d2 = fmadd(u, u, v * v);
     __m256 uvw_d2 = fmadd(w, w, uv_d2);
 
@@ -150,9 +148,9 @@ static __m256 fast_pow_gamma(__m256 x)
     __m256 sqrtx = sroot(x);
     __m256 onethird = set1_ps(1.f / 3.f);
     __m256 twothirds = set1_ps(2.f / 3.f);
-    __m256 nit1 = (sqrtx * twothirds) + onethird;
-    __m256 nit2 = (nit1 * twothirds) + (x / (nit1 * nit1)) * onethird;
-    __m256 nit3 = (nit2 * twothirds) + (x / (nit2 * nit2)) * onethird;
+    __m256 nit1 = fmadd(sqrtx, twothirds, onethird);
+    __m256 nit2 = fmadd(nit1, twothirds, (x * rcp(nit1 * nit1)) * onethird);
+    __m256 nit3 = fmadd(nit2, twothirds, (x * rcp(nit2 * nit2)) * onethird);
     return sroot(sqrtx * nit3);
 }
 
@@ -167,8 +165,14 @@ static m256x3 fast_pow_gamma3(m256x3 rgb)
 
 static m256x3 ACESFilm(m256x3 X)
 {
+#if USE_FAST_APPROXIMATE_ACES_TONEMAP
+    __m256 a = set1_ps(2.51f), b = set1_ps(0.03f), c = set1_ps(2.43f), d = set1_ps(0.59f), e = set1_ps(0.14f);
+    m256x3 rcpDenom = rcp(fmadd(X, fmadd(c, X, d), e));
+    return saturate((X * fmadd(a, X, b)) * rcpDenom);
+#else
     f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
     return saturate((X * (a * X + b)) / (X * (c * X + d) + e));
+#endif
 }
 
 static m256x3 LinearToSRGB(m256x3 rgb)
@@ -176,7 +180,7 @@ static m256x3 LinearToSRGB(m256x3 rgb)
     rgb = saturate(rgb);
 
 #if USE_FAST_APPROXIMATE_GAMMA
-    return  blend3_ps(1.055f * fast_pow_gamma3(rgb) - 0.055f, rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
+    return  blend3_ps(fmsub(set1_ps(1.055f), fast_pow_gamma3(rgb), set1_ps(0.055f)), rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
 #else
     return  blend3_ps(1.055f * pow_ps(rgb, set1x3_ps(1.f, 1.f, 1.f) / 2.4f) - 0.055f, rgb * 12.92f, rgb < set1x3_ps(0.0031308f, 0.0031308f, 0.0031308f));
 #endif
@@ -188,7 +192,7 @@ static m256x3 SRGBToLinear(m256x3 rgb)
     return blend3_ps(pow_ps((rgb + 0.055f) / 1.055f, set1x3_ps(2.4f, 2.4f, 2.4f)), rgb / 12.92f, rgb < set1x3_ps(0.04045f, 0.04045f, 0.04045f));
 }
 
-struct SMaterialInfo
+struct CACHE_ALIGN SMaterialInfo
 {
     m256x3 albedo;
     m256x3 emissive;
@@ -201,7 +205,7 @@ struct SMaterialInfo
     m256x3 refractionColor;
 };
 
-struct SRayHitInfo
+struct CACHE_ALIGN SRayHitInfo
 {
     __m256 fromInside;
     __m256 dist;
@@ -382,7 +386,7 @@ struct Camera
 static Camera camera;
 
 
-static SMaterialInfo GatherMaterials(Scene& scene, __m256i materialIndices)
+static SMaterialInfo GatherMaterials(Scene&  scene, __m256i materialIndices)
 {
     SMaterialInfo Info;
     Info.albedo.x = _mm256_i32gather_ps((f32*)&scene.materials.albedoR, materialIndices, 4);
@@ -425,16 +429,20 @@ static SMaterialInfo GatherMaterials(Scene& scene, __m256i materialIndices)
 static __m256 FresnelReflectAmount(__m256 n1, __m256 n2, m256x3 normal, m256x3 incident, __m256 f0, __m256 f90)
 {
     // Schlick approximation
-    __m256 r0 = (n1 - n2) / (n1 + n2);
+    //__m256 r0 = (n1 - n2) / (n1 + n2);
+    __m256 r0 = (n1 - n2) * rcp(n1 + n2);
     r0 *= r0;
 
     __m256 cosX = -dot(normal, incident);
     __m256 cond = (n1 > n2);
 
-    __m256 n = n1 / n2;
-    __m256 sinT2 = n * n * fnmadd(cosX, cosX, ConstOne);
-    __m256 newCosX = sroot(ConstOne - sinT2);
-    __m256 totalInternalReflection = (sinT2 > ConstOne);
+    //__m256 n = n1 / n2;
+    __m256 n = n1 * rcp(n2);
+    //__m256 sinT2 = n * n * fnmadd(cosX, cosX, ConstOne);
+    //__m256 sinT2Compl = ConstOne - sinT2;
+    __m256 sinT2Compl = fnmadd((n * n), fnmadd(cosX, cosX, ConstOne), ConstOne);
+    __m256 newCosX = sroot(sinT2Compl);
+    __m256 totalInternalReflection = (setzero_ps() > sinT2Compl);
     cosX = blend_ps(cosX, newCosX, cond & !totalInternalReflection);
 
     __m256 x = ConstOne - cosX;
@@ -565,17 +573,17 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
 #else
 
 static
-__m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneObject& quad)
+__m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo&  info, QuadSceneObject&  quad)
 {
-    __m256 result = MaskFalse;
-    __m256 early_return = MaskFalse;
+    //__m256 result = MaskFalse;
+    //__m256 early_return = MaskFalse;
 
     // calculate normal and flip vertices order if needed
     m256x3 normal = quad.normal;
-    {
+    /*{
         __m256 cond = (dot(normal, rayDir) > ConstZero);
         normal = blend3_ps(normal, -normal, cond);
-    }
+    }*/
 
     //          e32 
     //     3---------2
@@ -591,7 +599,8 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
     m256x3 rayOffset = quad.V0 - rayPos;
     __m256 rayDirDotN = dot(rayDir, normal);
     __m256 rayOffsetDotN = dot(rayOffset, normal);
-    __m256 dist = rayOffsetDotN / rayDirDotN;
+    //__m256 dist = rayOffsetDotN / rayDirDotN;
+    __m256 dist = rayOffsetDotN * rcp(rayDirDotN);
     m256x3 hit = fmsub(dist, rayDir, rayOffset);
 
     // Bot tri
@@ -606,17 +615,18 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
 
     // check all positive coords for tri1:
 
-    __m256 a0 = A0 >= ConstZero;
-    __m256 a1 = A1 >= ConstZero;
-    __m256 a2 = A2 >= ConstZero;
-    __m256 b0 = B0 >= ConstZero;
-    __m256 b1 = B1 >= ConstZero;
-    __m256 b2 = B2 >= ConstZero;
+    __m256 Zero = setzero_ps();
+    __m256 a0 = A0 >= Zero;
+    __m256 a1 = A1 >= Zero;
+    __m256 a2 = A2 >= Zero;
+    __m256 b0 = B0 >= Zero;
+    __m256 b1 = B1 >= Zero;
+    __m256 b2 = B2 >= Zero;
 
     __m256 tri1AllPositive = a0 && a1 && a2;
     __m256 tri2AllPositive = b0 && b1 && b2;
 
-    if (all_set(!(tri1AllPositive || tri2AllPositive))) return result;
+    if (all_set(!(tri1AllPositive || tri2AllPositive))) return MaskFalse;
 
     {
         __m256 cond =
@@ -626,18 +636,18 @@ __m256 TestQuadTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, QuadSceneO
         {
             info.fromInside = blend_ps(info.fromInside, MaskFalse, cond);
             info.dist = blend_ps(info.dist, dist, cond);
-            info.normal = blend3_ps(info.normal, normal, cond);
-            result = blend_ps(result, MaskTrue, cond);
+            info.normal = blend3_ps(info.normal, -normal, cond && (dot(normal, rayDir) > Zero));
+            //result = cond; // blend_ps(result, MaskTrue, cond);
         }
-    }
 
-    return result;
+        return cond;
+    }
 }
 
 #endif
 
 static
-__m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 sphere)
+__m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo&  info, m256x4 sphere)
 {
     // get the vector from the center of this sphere to where the ray begins.
     m256x3 spherexyz = m256x3{ sphere.x, sphere.y, sphere.z };
@@ -663,11 +673,14 @@ __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 s
     if (all_set(early_return)) return MaskFalse;
 
     //ray now found to intersect sphere, compute smallest t value of intersection
-    __m256 sroot_discr = sroot(discr);
+    /*__m256 sroot_discr = sroot(discr);
     __m256 dist = -b - sroot_discr;
-
     __m256 fromInside = (dist < ConstZero);
-    dist = blend_ps(dist, sroot_discr - b, fromInside);
+    dist = blend_ps(dist, sroot_discr - b, fromInside);*/
+
+    __m256 sroot_discr = sroot(discr);
+    __m256 fromInside = (-b < sroot_discr);
+    __m256 dist = blend_ps(-sroot_discr, sroot_discr, fromInside) - b;
 
     __m256 distCheck = (dist > set1_ps(c_minimumRayHitTime) && dist < info.dist);
     __m256 check = (!(early_return) && distCheck);
@@ -684,7 +697,7 @@ __m256 TestSphereTrace(m256x3 rayPos, m256x3 rayDir, SRayHitInfo& info, m256x4 s
 #define SCENE 1
 
 static
-void TestSceneTrace(Scene& scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hitInfo, __m256 hasTraceTerminated)
+void TestSceneTrace(Scene&  scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo&  hitInfo, __m256 hasTraceTerminated)
 {
     i32 objectIndex = 0;
     for (i32 quadIndex = 0; quadIndex < scene.NumQuadObjects; quadIndex++)
@@ -706,10 +719,10 @@ void TestSceneTrace(Scene& scene, m256x3 rayPos, m256x3 rayDir, SRayHitInfo& hit
 
 #if 1
 static
-m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/, texture& Texture)
+m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState /*u32& rngState*/, texture&  Texture)
 {
     // initialize
-    m256x3 ret = set1x3_ps(0.0f, 0.0f, 0.0f);
+    m256x3 ret = setzero3_ps();
     m256x3 throughput = set1x3_ps(1.0f, 1.0f, 1.0f);
     m256x3 rayPos = startRayPos;
     m256x3 rayDir = startRayDir;
@@ -722,7 +735,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         {
             hitInfo.fromInside = MaskFalse;
             hitInfo.dist = set1_ps(c_superFar);
-            hitInfo.normal = set1x3_ps(0.f, 0.f, 0.f);
+            hitInfo.normal = setzero3_ps();
             //hitInfo.material = GetZeroedMaterial();
             hitInfo.materialIndex = set1_epi(0);
         }
@@ -745,15 +758,15 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             m256x3 ambient = CubemapTextureSampleRandom(Texture, SampleDir, rngState);
 #else
             m256x3 ambient = CubemapTextureSampleBilinear(Texture, SampleDir);
-#endif
+#endif // USE_RANDOM_JITTER_TEXTURE_SAMPLING
 #else
             SampleDir.x = -newRayDir.x;
             SampleDir.z = -newRayDir.z;
             m256x3 ambient = EquirectangularTextureSampleBilinear(Texture, SampleDir);
-#endif
+#endif // USE_ENV_CUBEMAP
 #else
             m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
-#endif
+#endif // USE_ENV_MAP
             __m256 cond = (!(prevShouldBreak) && shouldBreak);
             // if this is the fist time we hit this case, we add the ambient term once
             ret = blend3_ps(newRet, fmadd(ambient, newThroughput, newRet), cond);
@@ -787,7 +800,9 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 #else
             __m256 newSpecularChance = specularChance;
 #endif
-            __m256 chanceMultiplier = (1.f - newSpecularChance) / (1.f - hitInfo.material.specularChance);
+            //__m256 chanceMultiplier = (1.f - newSpecularChance) * rcp(1.f - hitInfo.material.specularChance);
+            __m256 rcpSpecularChanceComplement = rcp(1.f - hitInfo.material.specularChance);
+            __m256 chanceMultiplier = fnmadd(newSpecularChance, rcpSpecularChanceComplement, rcpSpecularChanceComplement);
 
             specularChance = blend_ps(specularChance, newSpecularChance, hasSpecularChance);
             refractionChance = blend_ps(refractionChance, refractionChance * chanceMultiplier, hasSpecularChance);
@@ -817,7 +832,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
         {
 
 #if USE_UNIT_VECTOR_REJECTION_SAMPLING
-            m256x3 diffuseRayDir = normalize(hitInfo.normal + RandomUnitVectorRejectionSample_ps(rngState));
+            m256x3 diffuseRayDir = fast_approx_normalize(hitInfo.normal + RandomUnitVectorRejectionSample_ps(rngState));
 #else
             m256x3 diffuseRayDir = normalize(hitInfo.normal + RandomUnitVector_ps(rngState));
 #endif
@@ -826,15 +841,16 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             // reflect
             m256x3 specularRayDir = fnmadd(2.f * dot(newRayDir, hitInfo.normal), hitInfo.normal, newRayDir);
             __m256 specularRoughnessSqrd = hitInfo.material.specularRoughness * hitInfo.material.specularRoughness;
-            specularRayDir = /*normalize*/(fmadd(specularRoughnessSqrd, sub(diffuseRayDir, specularRayDir), specularRayDir)); // 
+            specularRayDir = /*normalize*/(fmadd(specularRoughnessSqrd, (diffuseRayDir - specularRayDir), specularRayDir)); // 
 
-            __m256 IOR = blend_ps(1.0f / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside);
+            //__m256 IOR = blend_ps(1.0f / hitInfo.material.IOR, hitInfo.material.IOR, hitInfo.fromInside);
+            __m256 IOR = blend_ps(rcp(hitInfo.material.IOR), hitInfo.material.IOR, hitInfo.fromInside);
             __m256 refractionRoughnessSquared = hitInfo.material.refractionRoughness * hitInfo.material.refractionRoughness;
             m256x3 refractionRayDir = rfrct(newRayDir, hitInfo.normal, IOR);
 
 #if USE_UNIT_VECTOR_REJECTION_SAMPLING
-            m256x3 newRefractionDir = normalize(RandomUnitVectorRejectionSample_ps(rngState) - hitInfo.normal);
-            m256x3 interpolatedRefractionDir = fmadd(refractionRoughnessSquared, sub(newRefractionDir, refractionRayDir), refractionRayDir);
+            m256x3 newRefractionDir = fast_approx_normalize(RandomUnitVectorRejectionSample_ps(rngState) - hitInfo.normal);
+            m256x3 interpolatedRefractionDir = fmadd(refractionRoughnessSquared, (newRefractionDir - refractionRayDir), refractionRayDir);
             refractionRayDir = /*normalize*/(interpolatedRefractionDir); //lerp(T u, T v, S x) { return add(refractionRayDir, mul(refractionRoughnessSquared, sub(newRefractionDir, refractionRayDir)));
             
 #else
@@ -864,7 +880,8 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 #endif
         // since we chose randomly between diffuse, specular, refract,
         // we need to account for the times we didn't do one or the other.
-        newThroughput = newThroughput * (1.f / rayProbability);
+        //newThroughput = newThroughput * (1.f / rayProbability);
+        newThroughput = newThroughput * rcp(rayProbability);
 
         // Russian Roulette
         // As the throughput gets smaller, the ray is more likely to get terminated early.
@@ -874,7 +891,8 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
             __m256 rouletteTermination = (Randomf3201_ps(rngState) > p);
 
             // Add the energy we 'lose' by randomly terminating paths
-            newThroughput = blend3_ps(newThroughput * (1.0f / p), newThroughput, rouletteTermination);
+            //newThroughput = blend3_ps(newThroughput * (1.0f / p), newThroughput, rouletteTermination);
+            newThroughput = blend3_ps(newThroughput * rcp(p), newThroughput, rouletteTermination);
         }
 
         // Conditionally write back persistent (non-local) values
@@ -1067,7 +1085,7 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 }
 #endif
 
-static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, texture& Texture)
+static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, __m256i iFrame, texture&  Texture)
 {
     // initialize a random number state based on frag coord and frame
 
@@ -1075,21 +1093,24 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
         (
             to_epi32(fragCoord.x) * 1973 +
             to_epi32(fragCoord.y) * 9277 +
-            i32(iFrame) * 26699
+            iFrame * 26699
             );
 
     // The ray starts at the camera position (the origin)
-    m256x3 rayPosition = m256x3{ ConstZero, ConstZero, ConstZero };
+    m256x3 rayPosition = setzero3_ps();
 
     // calculate coordinates of the ray target on the imaginary pixel plane.
     // -1 to +1 on x,y axis. 1 unit away on the z axis
+    m256x2 rcpResolution = rcp(iResolution);
     m256x2 jitter = m256x2{ Randomf3201_ps(rngState_epi), Randomf3201_ps(rngState_epi) } - .5f;
-    m256x2 rayTargetxy = ((fragCoord + jitter) / iResolution) * 2.0f - m256x2{ ConstOne, ConstOne };
+    //m256x2 rayTargetxy = fmsub(((fragCoord + jitter) / iResolution), set1x2_ps(2.f, 2.f), m256x2{ ConstOne, ConstOne });
+    m256x2 rayTargetxy = fmsub(((fragCoord + jitter) * rcpResolution), set1x2_ps(2.f, 2.f), m256x2{ ConstOne, ConstOne });
     m256x3 rayTarget = m256x3{ rayTargetxy.x, rayTargetxy.y, -camera.Distance };
 
     // correct for aspect ratio
-    __m256 aspectRatio = iResolution.x / iResolution.y;
-    rayTarget.y /= aspectRatio;
+    //__m256 aspectRatio = iResolution.x / iResolution.y;
+    //rayTarget.y /= aspectRatio;
+    rayTarget.y *= rcpResolution.x * iResolution.y;
 
     // calculate a normalized vector for the ray direction.
     // it's pointing from the ray position to the ray target.
@@ -1098,14 +1119,14 @@ static m256x3 mainImage(m256x2 fragCoord, m256x2 iResolution, f32 iFrame, textur
     //m256x3 cameraPosition = m256x3{ ConstZero, ConstZero, ConstOne * 40.f };
 
     // raytrace for this pixel
-    m256x3 color{ ConstZero, ConstZero, ConstZero };
+    m256x3 color = setzero3_ps();
     for (i32 index = 0; index < c_numRendersPerFrame; ++index)
         color = fmadd(GetColorForRay(camera.Position, rayDir, rngState_epi, Texture), set1_ps(1.f / (c_numRendersPerFrame)), color);
 
     return color;
 }
 
-struct RenderBufferInfo
+struct CACHE_ALIGN RenderBufferInfo
 {
     f32* BufferDataPtr;
     i32 BufferWidth;
@@ -1113,7 +1134,7 @@ struct RenderBufferInfo
     i32 NumChannels;
 };
 
-struct RenderTileInfo
+struct CACHE_ALIGN RenderTileInfo
 {
     i32 TileX, TileY;
     i32 TileWidth, TileHeight;
@@ -1121,7 +1142,37 @@ struct RenderTileInfo
     i32 TileMinY, TileMaxY;
 };
 
-static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, texture& Texture)
+#if VISUALIZE_TILES
+m256x3 GetThreadColor()
+{
+    __m256i id = set1_epi(__threadid());
+    __m256i x = id;
+    x = (x ^ 61) ^ (x >> 16);
+    x = x * 9;
+    x = x ^ (x >> 4);
+    x = x * 0x27d4eb2d;
+    x = x ^ (x >> 15);
+    __m256 R = to_ps(x) / 2147483648.0f;
+
+    x = (x ^ 61) ^ (x >> 16);
+    x = x * 9;
+    x = x ^ (x >> 4);
+    x = x * 0x27d4eb2d;
+    x = x ^ (x >> 15);
+    __m256 G = to_ps(x) / 2147483648.0f;
+
+    x = (x ^ 61) ^ (x >> 16);
+    x = x * 9;
+    x = x ^ (x >> 4);
+    x = x * 0x27d4eb2d;
+    x = x ^ (x >> 15);
+    __m256 B = to_ps(x) / 2147483648.0f;
+
+    return m256x3{ R, G, B };
+}
+#endif
+
+static void RenderTile(RenderBufferInfo&  BufferInfo, RenderTileInfo&  TileInfo, texture&  Texture)
 {
     m256x2 fragCoord;
     m256x2 iResolution;
@@ -1141,18 +1192,34 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
     //i32 YHeight = BufferInfo.BufferHeight;
     i32 XWidth = (BufferInfo.BufferWidth / LANE_COUNT);
 
-    for (i32 Y = TileInfo.TileMinY; Y <= TileInfo.TileMaxY; Y++)
+#if ACCUMULATE_FRAMES
+    __m256 blend_factor = set1_ps(1.0f / f32(iFrame + 1.f));
+#endif
+
+    fragCoord.y = set1_ps((f32)(BufferInfo.BufferHeight - 1 - TileInfo.TileMinY));
+
+    __m256 WideTileMinXWithLaneOffsets = set1_ps((f32)TileInfo.TileMinX) + XLaneOffsets;
+    __m256i iFrameWide = set1_epi((i32)iFrame);
+
+    for (i32 Y = TileInfo.TileMinY; Y <= TileInfo.TileMaxY; Y++, fragCoord.y -= set1_ps(1.f))
     {
-        fragCoord.y = set1_ps((f32)(BufferInfo.BufferHeight - 1 - Y));
-        for (i32 X = TileInfo.TileMinX; X <= TileInfo.TileMaxX; X += LANE_COUNT)
+        //fragCoord.y = set1_ps((f32)(BufferInfo.BufferHeight - 1 - Y));
+        fragCoord.x = WideTileMinXWithLaneOffsets;
+        for (i32 X = TileInfo.TileMinX; X <= TileInfo.TileMaxX; X += LANE_COUNT, fragCoord.x += set1_ps(8.f))
         {
-            fragCoord.x = set1_ps((f32)X) + XLaneOffsets;
+            //fragCoord.x = set1_ps((f32)X) + XLaneOffsets;
 
             // Tile visualization
 #if VISUALIZE_TILES
-            m256x3 color = set1x3_ps((f32)TileInfo.TileX / NUM_TILES_X, (f32)TileInfo.TileY / NUM_TILES_X, 0.f);
-#else
+
+        #if 1
             m256x3 color = mainImage(fragCoord, iResolution, iFrame, Texture);
+            color = GetThreadColor() + color * 0.00001f; // combine small part to hinder dead code elimination (just in case)
+        #else
+            m256x3 color = set1x3_ps((f32)TileInfo.TileX / NUM_TILES_X, (f32)TileInfo.TileY / NUM_TILES_X, 0.f);
+        #endif  
+#else
+            m256x3 color = mainImage(fragCoord, iResolution, iFrameWide, Texture);
 #endif
 
             f32* R = &BufferPos[0];
@@ -1163,7 +1230,10 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
             // average the frames together
             m256x3 lastFrameColor = m256x3{ load_ps(R), load_ps(G), load_ps(B) };
 
-            color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
+            //color = lerp(lastFrameColor, color, (1.0f / f32(iFrame + 1.f)));
+            
+            color = fmadd(blend_factor, color - lastFrameColor, lastFrameColor);
+            
 #endif
 
 #if USE_NON_TEMPORAL_STORE
@@ -1176,11 +1246,14 @@ static void RenderTile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, t
             store_ps(B, color.z);
 #endif
             BufferPos += LANE_COUNT * 3;
+
+            //fragCoord.x += set1_ps(8.f);
         }
+        //fragCoord.y -= set1_ps(1.f);
     }
 }
 
-static void OutputToScreen(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo, void* ScreenBufferData)
+static void OutputToScreen(RenderBufferInfo&  BufferInfo, RenderTileInfo&  TileInfo, void*  ScreenBufferData)
 {
     f32 c_exposure = 1.;
 
@@ -1253,7 +1326,7 @@ static void OutputToFile(RenderBufferInfo& BufferInfo, RenderTileInfo& TileInfo,
     }
 }
 
-struct WorkerThreadData
+struct CACHE_ALIGN WorkerThreadData
 {
     RenderBufferInfo BufferInfo; // TODO: this may be updated. make safe
     RenderTileInfo TileInfo;
@@ -1263,7 +1336,7 @@ struct WorkerThreadData
 
 static constexpr i32 NumMaxThreads = 1024;
 static bool threadpooluninitialized = true;
-static WorkerThreadData WorkData[NumMaxThreads];
+static CACHE_ALIGN WorkerThreadData WorkData[NumMaxThreads];
 
 static bool scene_uninitialized = true;
 static bool camera_uninitialized = true;
@@ -1426,9 +1499,9 @@ void InitializeCamera()
 
 // TODO: refactor this. Should be named updateworkerdata, and factor out tile computation
 static void UpdateTileInfo(
-    f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+    f32*  BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
-    void* ScreenBufferData
+    void*  ScreenBufferData
 )
 {
     RenderBufferInfo BufferInfo;
@@ -1477,7 +1550,7 @@ static void UpdateTileInfo(
     tileDataChanged = false;
 }
 
-static void DoWorkerThreadWork_Custom(struct work_queue* Queue, void* Data) // test callback function
+static void DoWorkerThreadWork_Custom(struct work_queue*  Queue, void*  Data) // test callback function
 {
     WorkerThreadData* WorkerData = (WorkerThreadData*)Data;
     RenderTile(WorkerData->BufferInfo, WorkerData->TileInfo, WorkerData->Texture);
@@ -1582,7 +1655,7 @@ void InitializeGlobalRenderResources()
     }
 }
 
-static void AddWorkQueueEntry_Custom(work_queue* Queue, work_queue_callback* Callback, void* Data)
+static void AddWorkQueueEntry_Custom(work_queue*  Queue, work_queue_callback* Callback, void* Data)
 {
     // TODO: for multiple producers add interlocked compare exchange to entrycount
     // TODO: Switch to interlockedcompare exchange eventually so that any thread can add?
@@ -1600,12 +1673,12 @@ static void AddWorkQueueEntry_Custom(work_queue* Queue, work_queue_callback* Cal
     ReleaseSemaphore(Queue->SemaphoreHandle, lReleaseCount, &lpPreviousCount);
 }
 
-static bool QueueWorkStillInProgress_Custom(work_queue* Queue)
+static bool QueueWorkStillInProgress_Custom(work_queue*  Queue)
 {
     return Queue->CompletionGoal != Queue->EntryCompletionCount;// { DoWorkerWork(NUM_THREADS); }
 }
 
-void CompleteAllWork_Custom(work_queue* Queue)
+void CompleteAllWork_Custom(work_queue*  Queue)
 {
     while (QueueWorkStillInProgress_Custom(Queue))
     {
@@ -1615,9 +1688,9 @@ void CompleteAllWork_Custom(work_queue* Queue)
     Queue->CompletionGoal = 0;
 }
 
-void DemofoxRenderOptV4(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
+void DemofoxRenderOptV4(f32*  BufferOut, i32 BufferWidth, i32 BufferHeight, i32 NumTilesX, i32 NumTilesY, i32 TileWidth, i32 TileHeight, i32 NumChannels,
     texture Texture,
-    void* ScreenBufferData
+    void*  ScreenBufferData
 )
 {
     InitializeGlobalRenderResources();

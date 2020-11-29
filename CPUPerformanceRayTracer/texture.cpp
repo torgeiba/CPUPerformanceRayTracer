@@ -375,7 +375,7 @@ m256x3 CubemapTextureSampleRandom(texture cubemap, m256x3 Directions, __m256i& r
 	}
 
 	__m256 maxAbsDir = max_ps(absDir.x, max_ps(absDir.y, absDir.z));
-	m256x2 positiveQuadrant = fmadd(faceUV / maxAbsDir, set1x2_ps(0.5f, 0.5f), set1x2_ps(0.5f, 0.5f));
+	m256x2 positiveQuadrant = fmadd(faceUV * rcp(maxAbsDir), set1x2_ps(0.5f, 0.5f), set1x2_ps(0.5f, 0.5f));
 
 	positiveQuadrant = saturate(positiveQuadrant);
 
