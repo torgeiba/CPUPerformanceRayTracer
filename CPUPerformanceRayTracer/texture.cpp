@@ -184,6 +184,28 @@ m256x3 EquirectangularTextureSampleBilinear(texture texture, m256x3 Directions)
 	return Result;
 }
 
+m256x3 EquirectangularTextureSampleRandom(texture texture, m256x3 Directions, __m256i& rngState)
+{
+	m256x3 Result;
+	{
+
+		m256x2 invAtan = m256x2{ set1_ps(0.1591f), set1_ps(0.3183f) };
+		m256x2 uvs = m256x2
+		{
+			atan2_ps(Directions.z, Directions.x),
+			asin_ps(Directions.y)
+		};
+
+		uvs *= invAtan;
+		uvs = uvs + 0.5f;
+		uvs -= round_floor(uvs);
+		uvs = saturate(uvs);
+		m256x3 rgb = /*TexelSampleBilinear(texture, uvs);*/ TexelSampleRandom(texture, uvs, rngState);
+		Result = rgb;
+	}
+	return Result;
+}
+
 // https://en.wikipedia.org/wiki/Cube_mapping
 //m256x3 CubemapTextureSampleBilinear(texture cubemap, m256x3 Directions)
 //{

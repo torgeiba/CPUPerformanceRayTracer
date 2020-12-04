@@ -54,7 +54,7 @@
 
 // Rendering
 #define USE_ENV_MAP 1
-#define USE_ENV_CUBEMAP 1
+#define USE_ENV_CUBEMAP 0
 #define OUTPUT_TO_SCREEN !RENDER_OFFLINE
 #define USE_NON_TEMPORAL_STORE 0
 #define ACCUMULATE_FRAMES 1
@@ -106,4 +106,4 @@
 // TODO: This causes memory access violation, figure out why.
 // Tested: Does not seem to make a difference between _aligned_malloc and malloc
 // VirtualAlloc works fine, but that allocates 4k pages minimum, so it might hide some out of bounds issue somewhere
-#define USE_ALIGNED_MALLOC 0
+#define USE_ALIGNED_MALLOC 1

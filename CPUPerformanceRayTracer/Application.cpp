@@ -150,6 +150,8 @@ void win32_offscreen_buffer::Resize(i32 NewWidth, i32 NewHeight)
 #endif
 	if(RenderTarget != 0) memset(RenderTarget, 0, RenderTargetSize);
 	Pitch = Width * BytesPerPixel;
+
+	ReinitializeRenderTileData();
 }
 
 static void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer, HDC DeviceContext, i32 WindowWidth, i32 WindowHeight)

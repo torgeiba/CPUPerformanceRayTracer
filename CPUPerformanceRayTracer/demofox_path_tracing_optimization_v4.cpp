@@ -762,7 +762,11 @@ m256x3 GetColorForRay(m256x3 startRayPos, m256x3 startRayDir, __m256i& rngState 
 #else
             SampleDir.x = -newRayDir.x;
             SampleDir.z = -newRayDir.z;
+#if USE_RANDOM_JITTER_TEXTURE_SAMPLING
+            m256x3 ambient = EquirectangularTextureSampleRandom(Texture, SampleDir, rngState);
+#else
             m256x3 ambient = EquirectangularTextureSampleBilinear(Texture, SampleDir);
+#endif // USE_RANDOM_JITTER_TEXTURE_SAMPLING
 #endif // USE_ENV_CUBEMAP
 #else
             m256x3 ambient = set1x3_ps(.11f, .1f, .15f);
@@ -1713,6 +1717,11 @@ void DemofoxRenderOptV4(f32*  BufferOut, i32 BufferWidth, i32 BufferHeight, i32 
     }
 
     CompleteAllWork_Custom(Queue);
+}
+
+void ReinitializeRenderTileData()
+{
+    tileDataChanged = true;
 }
 
 // TODO: rename, does not actually output to file, but to a buffer, and does not actually just copy, but also applies post processing / tonemapping, sRGB and 8-bit conversion

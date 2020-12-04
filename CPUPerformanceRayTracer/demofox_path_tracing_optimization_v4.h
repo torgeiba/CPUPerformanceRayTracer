@@ -22,3 +22,5 @@ void CopyOutputToFile(f32* BufferOut, i32 BufferWidth, i32 BufferHeight, i32 Num
 );
 
 void InitializeGlobalRenderResources();
+
+void ReinitializeRenderTileData();
