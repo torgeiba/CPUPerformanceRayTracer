@@ -142,7 +142,6 @@ m256x3 EquirectangularTextureSampleGather(texture texture, m256x3 Directions)
 {
 	m256x3 Result;
 	{
-
 		m256x2 invAtan = m256x2{ set1_ps(0.1591f), set1_ps(0.3183f) };
 		m256x2 uvs = m256x2
 		{
@@ -196,12 +195,9 @@ m256x3 EquirectangularTextureSampleRandom(texture texture, m256x3 Directions, __
 			asin_ps(Directions.y)
 		};
 
-		uvs *= invAtan;
-		uvs = uvs + 0.5f;
-		uvs -= round_floor(uvs);
+		uvs = fract(fmadd(invAtan, uvs, set1_ps(0.5f)));
 		uvs = saturate(uvs);
-		m256x3 rgb = /*TexelSampleBilinear(texture, uvs);*/ TexelSampleRandom(texture, uvs, rngState);
-		Result = rgb;
+		Result = TexelSampleRandom(texture, uvs, rngState);
 	}
 	return Result;
 }
