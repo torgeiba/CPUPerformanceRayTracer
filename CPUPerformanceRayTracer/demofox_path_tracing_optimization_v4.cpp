@@ -1217,7 +1217,7 @@ static void RenderTile(RenderBufferInfo&  BufferInfo, RenderTileInfo&  TileInfo,
 #if VISUALIZE_TILES
 
         #if 1
-            m256x3 color = mainImage(fragCoord, iResolution, iFrame, Texture);
+            m256x3 color = mainImage(fragCoord, iResolution, iFrameWide, Texture);
             color = GetThreadColor() + color * 0.00001f; // combine small part to hinder dead code elimination (just in case)
         #else
             m256x3 color = set1x3_ps((f32)TileInfo.TileX / NUM_TILES_X, (f32)TileInfo.TileY / NUM_TILES_X, 0.f);
@@ -1610,7 +1610,8 @@ ThreadProc_Custom(LPVOID lpParameter)
 
 work_queue* MakeWorkQueue_Custom()
 {
-    work_queue* Queue = new work_queue{};
+    work_queue* Queue = /*new work_queue{};*/ (work_queue*)_aligned_malloc(sizeof(work_queue), CACHE_LINE_SIZE_BYTES);
+    *Queue = work_queue{};
     LPSECURITY_ATTRIBUTES SemaphoreAttributes = 0;
     LONG InitialCount = 0;
     LONG MaximumCount = NUM_THREADS;

@@ -3,7 +3,6 @@
 #include "intrin.h" // WriteBarrier
 
 #include "global_preprocessor_flags.h"
-//#define NUM_THREADS 8
 
 static bool DoNextWorkQueueEntry(work_queue* Queue)
 {
@@ -33,7 +32,7 @@ static bool DoNextWorkQueueEntry(work_queue* Queue)
 }
 
 
-// TODO make this return a bool if it fails and queue is full
+// TODO make this return a bool and return false if it fails and queue is full
 void AddWorkQueueEntry(work_queue* Queue, work_queue_callback* Callback, void* Data)
 {
 	// TODO: for multiple producers add interlocked compare exchange to entrycount
@@ -82,6 +81,7 @@ ThreadProc(LPVOID lpParameter)
 work_queue* MakeWorkQueue()
 {
 	work_queue* Queue = (work_queue * )_aligned_malloc(sizeof(work_queue), CACHE_LINE_SIZE_BYTES); //new work_queue{};
+	*Queue = work_queue{};
 	LPSECURITY_ATTRIBUTES SemaphoreAttributes = 0;
 	LONG InitialCount = 0;
 	LONG MaximumCount = NUM_THREADS;
