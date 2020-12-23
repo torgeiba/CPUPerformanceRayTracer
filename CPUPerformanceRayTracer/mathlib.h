@@ -9,8 +9,6 @@
 
 #define LANE_COUNT 8
 
-#define USE_RCP_NORMALIZE 1
-
 struct f32x2 { f32 x, y; };
 struct f32x3 { f32 x, y, z; };
 struct f32x4 { f32 x, y, z, w; };
@@ -862,5 +860,5 @@ inline __m256i blend_epi(__m256i a, __m256i b, __m256i mask) { return _mm256_ble
 
 inline __m256i bitcast_epi(__m256 a) { return _mm256_castps_si256(a); }
 inline __m256 bitcast_ps(__m256i a) { return _mm256_castsi256_ps(a); }
-inline __m256i to_epi32(__m256 a) { return _mm256_cvtps_epi32(a); };
-inline __m256 to_ps(__m256i a) { return _mm256_cvtepi32_ps(a); };
+inline __m256i to_epi32(__m256 a) { return _mm256_cvtps_epi32(a); }
+inline __m256 to_ps(__m256i a) { return _mm256_cvtepi32_ps(a); }
